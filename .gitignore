@@ -1,6 +1,4 @@
-/bin/client
-/bin/server
-/bin/operator
+*.exe
 *.cert
 *.key
 ## Ignore Visual Studio temporary files, build results, and
