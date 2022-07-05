@@ -580,13 +580,15 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "port-scan":
 		PrepareTaskWithOneArg(c, clientId, command, "<ipOrHostname>: ")
 	case "wmi-exec":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain\\username>;<passwordOrNtHash><command>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain\\username>;<passwordOrNtHash>;<command>: ")
 	case "smb-exec":
 		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain\\username>;<password><command>: ")
 	case "list-shares":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain\\username>;<passwordOrNthash><command>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain\\username>;<passwordOrNthash>;<command>: ")
 	case "ps-exec":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain\\username>;<password><remoteUrlOfBinary><command>:")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain\\username>;<password><remoteUrlOfBinary>;<command>: ")
+	case "fileless-service":
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<serviceName>;<command>: ")
 	case "subnet-scan":
 		PrepareTaskWithOneArg(c, clientId, command, "<192.168.1.0>: ")
 	case "shell-history":

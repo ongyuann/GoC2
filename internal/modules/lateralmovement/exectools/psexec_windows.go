@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"runtime"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -54,7 +53,6 @@ func PsExec(args []string) (string, error) {
 		return "", errors.New("Failed to download service binary.")
 	}
 	command := args[4]
-	runtime.LockOSThread()
 	err = LogonUserToAccessSVM(domainW, userName, password)
 	if err != nil {
 		return "", err
@@ -62,50 +60,38 @@ func PsExec(args []string) (string, error) {
 	if err := DropServiceBinary(domainW, userName, password, host, serviceBinBytes); err != nil {
 		return "", err
 	}
-	fmt.Println("[+] Dropped Service Binary...")
 	if err := CreateServicePsExec(host, "GoPsExec"); err != nil {
 		return "", err
 	}
-	fmt.Println("[+] Created Remote Service...")
 	if err := StartService(host, "GoPsExec"); err != nil {
 		return "", err
 	}
-	fmt.Println("[+] Started Serivce....")
 	hNamedPipe := ConnectToPipe(fmt.Sprintf("\\\\%s\\pipe\\slotty", host))
 	if hNamedPipe == 0 {
 		return "", errors.New("Couldnt connect to pipe")
 	}
 	WriteToPipeCommand(hNamedPipe, command)
-	fmt.Println("[+] Reading Results From Pipe...")
 	ok, commandOutput := ReadFromPipe(hNamedPipe)
 	if !ok {
 		return "", errors.New("[-] Failed to get response back from pipe")
 	}
-	fmt.Printf("%s\n", commandOutput)
 	windows.CloseHandle(windows.Handle(hNamedPipe))
-	fmt.Println("[+] Cleaning Up...")
 	if err := StopService(host, "GoPsExec"); err != nil {
 		return "", err
 	}
-	fmt.Println("[+] Stopped Service")
 	if err := DeleteServicePsExec(host, "GoPsExec"); err != nil {
 		return "", err
 	}
-	fmt.Println("[+] Deleted Service")
 	if err := DeleteServiceBinary(domainW, userName, password, host); err != nil {
 		return "", err
 	}
-	fmt.Println("[+] Deleted Service Binary")
-	runtime.UnlockOSThread()
 	return commandOutput, nil
 }
 
 func ConnectToPipe(pipeName string) uintptr {
-	fmt.Println("[+] Waiting for pipe")
 	winapi.WaitNamedPipe(pipeName, 0xffffffff)
 	pipeHandle := winapi.CreateFile(pipeName, windows.GENERIC_WRITE|windows.GENERIC_READ, 0, 0, windows.OPEN_EXISTING, 0, 0)
 	if pipeHandle == 0 {
-		fmt.Println("[-] Failed to open handle to pipe")
 		return 0
 	}
 	return pipeHandle
@@ -122,12 +108,10 @@ func ReadFromPipe(handleNamedPipe uintptr) (bool, string) {
 	for {
 		b := windows.ReadFile(windows.Handle(handleNamedPipe), buffer[:], &bytesRead, nil)
 		if b != nil {
-			fmt.Println("[-] Failed to read from pipe")
 			return false, ""
 		}
 		msg.MessageType = binary.LittleEndian.Uint32(buffer[0:4])
 		copy(msg.Data[:], buffer[:])
-		fmt.Println(fmt.Sprintf("[+] Read %d Bytes From Pipe\n", bytesRead))
 		stopReading, result = HandleResponse(msg)
 		commandResult += result
 		if stopReading {
@@ -159,7 +143,6 @@ func WriteToPipeCommand(handleNamedPipe uintptr, command string) bool {
 	var bytesWritten uint32
 	results := winapi.WriteFile(syscall.Handle(handleNamedPipe), uintptr(unsafe.Pointer(&msg)), uint32(unsafe.Sizeof(msg)), &bytesWritten, 0)
 	if !results {
-		fmt.Println("[-] Failed to write to pipe")
 		return false
 	}
 	return true

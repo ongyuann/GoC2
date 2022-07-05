@@ -81,6 +81,7 @@ var LateralMovementModulesList = [...]string{
 	"wmi-exec",
 	"smb-exec",
 	"ps-exec",
+	"fileless-service",
 	"admin-check",
 }
 

