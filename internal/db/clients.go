@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/latortuga71/wsC2/internal/data"
+	"github.com/latortuga71/GoC2/internal/data"
 )
 
 var ClientsDatabase *ClientDB

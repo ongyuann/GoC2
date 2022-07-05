@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/latortuga71/wsC2/internal/data"
-	"github.com/latortuga71/wsC2/internal/db"
+	"github.com/latortuga71/GoC2/internal/data"
+	"github.com/latortuga71/GoC2/internal/db"
 
-	"github.com/latortuga71/wsC2/internal/log"
-	"github.com/latortuga71/wsC2/internal/server"
-	"github.com/latortuga71/wsC2/internal/utils"
+	"github.com/latortuga71/GoC2/internal/log"
+	"github.com/latortuga71/GoC2/internal/server"
+	"github.com/latortuga71/GoC2/internal/utils"
 )
 
 var SocketUpgrader = websocket.Upgrader{}

@@ -12,7 +12,7 @@ var (
 	pNtProtectVirtualMemory = pModNtdll.NewProc("NtProtectVirtualMemory")
 )
 
-func NtProtectVirtualMemoryTest(hProcess uintptr, baseAddr uintptr, bytesToProtect *uintptr, newProt uint32, oldProt *uint32) error {
+func NtProtectVirtualMemory(hProcess uintptr, baseAddr uintptr, bytesToProtect *uintptr, newProt uint32, oldProt *uint32) error {
 	ntstatus, _, _ := pNtProtectVirtualMemory.Call(hProcess, uintptr(unsafe.Pointer(&baseAddr)), uintptr(unsafe.Pointer(bytesToProtect)), uintptr(newProt), uintptr(unsafe.Pointer(oldProt)))
 	if ntstatus != 0 {
 		log.Printf("%x", ntstatus)

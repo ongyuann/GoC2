@@ -15,7 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/hirochachacha/go-smb2"
-	"github.com/latortuga71/wsC2/pkg/winapi"
+	"github.com/latortuga71/GoC2/pkg/winapi"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"

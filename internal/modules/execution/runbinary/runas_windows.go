@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"syscall"
 
-	"github.com/latortuga71/wsC2/pkg/winapi"
+	"github.com/latortuga71/GoC2/pkg/winapi"
 	"golang.org/x/sys/windows"
 )
 

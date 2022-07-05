@@ -5,9 +5,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/latortuga71/wsC2/internal/log"
-	"github.com/latortuga71/wsC2/internal/routes"
-	"github.com/latortuga71/wsC2/internal/server"
+	"github.com/latortuga71/GoC2/internal/log"
+	"github.com/latortuga71/GoC2/internal/routes"
+	"github.com/latortuga71/GoC2/internal/server"
 )
 
 func main() {

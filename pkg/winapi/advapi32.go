@@ -21,6 +21,8 @@ var (
 	pCreateProcessWithToken  = pModAdvapi32.NewProc("CreateProcessWithTokenW")
 	pGetTokenInformation     = pModAdvapi32.NewProc("GetTokenInformation")
 	pLookupAccountSid        = pModAdvapi32.NewProc("LookupAccountSidA")
+	pRegSaveKeyExW           = pModAdvapi32.NewProc("RegSaveKeyExW")
+	pRegConnectRegistry      = pModAdvapi32.NewProc("RegConnectRegistryW")
 )
 
 const (
@@ -35,6 +37,24 @@ const (
 	// Tell windows not to show the window
 	ShowWindow = 0
 )
+
+func RegSaveKeyExW(hKey windows.Handle, outFile string, lpsecuityAttributes uintptr, flags uint32) error {
+	outfilePtr := syscall.StringToUTF16Ptr(outFile)
+	res, _, err := pRegSaveKeyExW.Call(uintptr(hKey), uintptr(unsafe.Pointer(outfilePtr)), 0, uintptr(flags))
+	if res != 0 {
+		return err
+	}
+	return nil
+}
+
+func RegConnectRegistryW(host string, hKey windows.Handle, phKey *windows.Handle) bool {
+	hostPtr := syscall.StringToUTF16Ptr(host)
+	res, _, _ := pRegConnectRegistry.Call(uintptr(unsafe.Pointer(hostPtr)), uintptr(hKey), uintptr(unsafe.Pointer(phKey)))
+	if res != 0 || *phKey == 0 {
+		return false
+	}
+	return true
+}
 
 func ListToEnvironmentBlock(list *[]string) *uint16 {
 	if list == nil {

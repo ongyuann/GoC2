@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/latortuga71/wsC2/internal/data"
-	"github.com/latortuga71/wsC2/internal/log"
-	"github.com/latortuga71/wsC2/internal/server"
+	"github.com/latortuga71/GoC2/internal/data"
+	"github.com/latortuga71/GoC2/internal/log"
+	"github.com/latortuga71/GoC2/internal/server"
 )
 
 func DistributeClientCertificate(c *gin.Context) {

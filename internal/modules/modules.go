@@ -108,6 +108,8 @@ var PersistenceModulesList = [...]string{
 	"powershell-profile",
 	"run-key",
 	"logon-script",
+	"com-hijack", // need something that finds one for you.
+	"scheduled-task",
 	// bashrc
 	// crontab
 	// launchd
@@ -120,6 +122,7 @@ var PersistenceModulesList = [...]string{
 var EnumerationModulesList = [...]string{
 	"exit",
 	"env",
+	"port-scan",
 	"subnet-scan",
 	"ifconfig",
 	"list-services",
@@ -133,9 +136,9 @@ var EnumerationModulesList = [...]string{
 
 var CredentialsModulesList = [...]string{
 	"exit",
-	"dump-lsa",
+	"dump-secrets",
+	"dump-secrets-remote",
 	"dump-process",
-	"dump-hashes",
 }
 
 var ImpersonationModulesList = [...]string{

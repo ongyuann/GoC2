@@ -6,13 +6,27 @@ package scanner
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strings"
-	"time"
 
-	"github.com/latortuga71/wsC2/pkg/winapi"
+	"github.com/latortuga71/GoC2/pkg/winapi"
 )
+
+func SinglePortScan(args []string) (string, error) {
+	if len(args) < 2 {
+		return "", errors.New("Not Enough Args")
+	}
+	host := args[0]
+	port := args[1]
+	target := fmt.Sprintf("%s:%s", host, port)
+	conn, err := net.Dial("tcp", target)
+	if err != nil {
+		return fmt.Sprintf("[-] TCP PORT %s CLOSED\n", port), nil
+
+	}
+	defer conn.Close()
+	return fmt.Sprintf("[+] TCP PORT %s OPEN\n", port), nil
+}
 
 func SubnetScan(subnet string) (string, error) {
 	//this takes a couple minutes
@@ -30,38 +44,6 @@ func SubnetScan(subnet string) (string, error) {
 			continue
 		}
 		results += fmt.Sprintf("[+] %s Reachable\n", target)
-	}
-	return results, nil
-}
-
-func TcpCheck(host string, port int) (string, error) {
-	target := fmt.Sprintf("%s:%d", host, port)
-	log.Println(port)
-	conn, err := net.Dial("tcp", target)
-	if err != nil {
-		log.Println(err)
-		return "", err
-	}
-	conn.Close()
-	return fmt.Sprintf("TCP PORT %d OPEN\n", port), nil
-}
-
-func UdpCheck(host, port string) (string, error) {
-	target := fmt.Sprintf("%s:%s", host, port)
-	conn, err := net.DialTimeout("udp", target, time.Second*2)
-	if err != nil {
-		return "", err
-	}
-	conn.Close()
-	return fmt.Sprintf("UDP PORT %s OPEN\n", port), nil
-}
-
-func PortScan(ip string) (string, error) {
-	results := ""
-	for port := 71; port < 90; port++ {
-		if res, err := TcpCheck(ip, port); err == nil {
-			results += res
-		}
 	}
 	return results, nil
 }

@@ -4,13 +4,12 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/latortuga71/wsC2/internal/db"
-	"github.com/latortuga71/wsC2/internal/log"
+	"github.com/latortuga71/GoC2/internal/db"
+	"github.com/latortuga71/GoC2/internal/log"
 )
 
 func LogRequest(c *gin.Context) {
-	ip, _ := c.RemoteIP()
-	ipStr := ip.String()
+	ipStr := c.RemoteIP()
 	method := c.Request.Method
 	path := c.FullPath()
 	log.Log.Info().Str("service", "RestAPI").Msgf("%s %s Request From %s", method, path, ipStr)

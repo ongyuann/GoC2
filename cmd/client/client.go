@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/latortuga71/wsC2/internal/client"
-	"github.com/latortuga71/wsC2/internal/data"
+	"github.com/latortuga71/GoC2/internal/client"
+	"github.com/latortuga71/GoC2/internal/data"
 )
 
 func main() {

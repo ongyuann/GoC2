@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/latortuga71/wsC2/internal/modules/basic"
+	"github.com/latortuga71/GoC2/internal/modules/basic"
 )
 
 type Client struct {

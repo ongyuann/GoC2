@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/latortuga71/wsC2/internal/data"
+	"github.com/latortuga71/GoC2/internal/data"
 )
 
 func CheckMessage(socketData []byte) (error, string) {

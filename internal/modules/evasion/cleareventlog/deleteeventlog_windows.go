@@ -6,7 +6,7 @@ package cleareventlog
 import (
 	"fmt"
 
-	"github.com/latortuga71/wsC2/pkg/winapi"
+	"github.com/latortuga71/GoC2/pkg/winapi"
 )
 
 func DeleteEventLog(logname string) (string, error) {

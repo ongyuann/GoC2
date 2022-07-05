@@ -9,8 +9,8 @@ import (
 	"os"
 
 	"github.com/gorilla/websocket"
-	"github.com/latortuga71/wsC2/internal/data"
-	"github.com/latortuga71/wsC2/internal/operator"
+	"github.com/latortuga71/GoC2/internal/data"
+	"github.com/latortuga71/GoC2/internal/operator"
 )
 
 func main() {
