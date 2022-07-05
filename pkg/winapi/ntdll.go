@@ -1,13 +1,26 @@
 package winapi
 
 import (
+	"log"
 	"syscall"
+	"unsafe"
 )
 
 var (
-	pModNtdll      = syscall.NewLazyDLL("ntdll.dll")
-	pRtlCopyMemory = pModNtdll.NewProc("RtlCopyMemory")
+	pModNtdll               = syscall.NewLazyDLL("ntdll.dll")
+	pRtlCopyMemory          = pModNtdll.NewProc("RtlCopyMemory")
+	pNtProtectVirtualMemory = pModNtdll.NewProc("NtProtectVirtualMemory")
 )
+
+func NtProtectVirtualMemoryTest(hProcess uintptr, baseAddr uintptr, bytesToProtect *uintptr, newProt uint32, oldProt *uint32) error {
+	ntstatus, _, _ := pNtProtectVirtualMemory.Call(hProcess, uintptr(unsafe.Pointer(&baseAddr)), uintptr(unsafe.Pointer(bytesToProtect)), uintptr(newProt), uintptr(unsafe.Pointer(oldProt)))
+	if ntstatus != 0 {
+		log.Printf("%x", ntstatus)
+		return syscall.GetLastError()
+	}
+	log.Println("nt prot worked")
+	return nil
+}
 
 // /	_, _, err = windows.RtlCopyMemory.Call(heap, uintptr(unsafe.Pointer(&shellcode[0])), uintptr(shellcodeLen))
 func RtlCopyMemory(destination uintptr, source uintptr, length uint32) error {

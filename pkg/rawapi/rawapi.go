@@ -14,6 +14,7 @@ var (
 	ntAllocateVirtualMemoryId, _ = bpGlobal.GetSysID("NtAllocateVirtualMemory")
 	ntProtectVirtualMemoryId, _  = bpGlobal.GetSysID("NtProtectVirtualMemory")
 	ntCreateThreadExId, _        = bpGlobal.GetSysID("NtCreateThreadEx")
+	ntReadVirtualMemory, _       = bpGlobal.GetSysID("NtReadVirtualMemory")
 )
 
 const (
@@ -22,8 +23,16 @@ const (
 	Memreserve = uintptr(0x00002000)
 )
 
-func NtWriteVirtualMemory(hProcess uintptr, lpBaseAddress uintptr, lpBuffer *byte, nSize uintptr, lpNumberOfBytesWritten *uintptr) (err error) {
-	r1, _ := bananaphone.Syscall(ntWriteVirtualMemoryId, uintptr(hProcess), uintptr(lpBaseAddress), uintptr(unsafe.Pointer(lpBuffer)), uintptr(nSize), uintptr(unsafe.Pointer(lpNumberOfBytesWritten)))
+func NtReadVirtualMemory(hProcess uintptr, lpBaseAddress uintptr, lpBuffer uintptr, nRead uint32, bytesRead *uint32) (err error) {
+	r1, _ := bananaphone.Syscall(ntReadVirtualMemory, uintptr(hProcess), uintptr(lpBaseAddress), lpBuffer, uintptr(nRead), uintptr(unsafe.Pointer(bytesRead)))
+	if r1 != 0 {
+		err = fmt.Errorf("NtReadVirtualMemory error code: %x", r1)
+	}
+	return
+}
+
+func NtWriteVirtualMemory(hProcess uintptr, lpBaseAddress uintptr, lpBuffer uintptr, nSize uintptr, lpNumberOfBytesWritten *uint32) (err error) {
+	r1, _ := bananaphone.Syscall(ntWriteVirtualMemoryId, uintptr(hProcess), uintptr(lpBaseAddress), lpBuffer, uintptr(nSize), uintptr(unsafe.Pointer(lpNumberOfBytesWritten)))
 	if r1 != 0 {
 		err = fmt.Errorf("NtWriteVirtualMemory error code: %x", r1)
 	}
@@ -38,8 +47,8 @@ func NtAllocateVirtualMemory(hProcess uintptr, lpAddress *uintptr, zerobits uint
 	return
 }
 
-func NtProtectVirtualMemory(hProcess uintptr, lpAddress *uintptr, dwSize *uintptr, flNewProtect uint32, lpflOldProtect *uint32) (err error) {
-	r1, _ := bananaphone.Syscall(ntProtectVirtualMemoryId, uintptr(hProcess), uintptr(unsafe.Pointer(lpAddress)), uintptr(unsafe.Pointer(dwSize)), uintptr(flNewProtect), uintptr(unsafe.Pointer(lpflOldProtect)))
+func NtProtectVirtualMemory(hProcess uintptr, baseAddr uintptr, bytesToProtect *uintptr, newProt uint32, oldProt *uint32) (err error) {
+	r1, _ := bananaphone.Syscall(ntProtectVirtualMemoryId, hProcess, uintptr(unsafe.Pointer(&baseAddr)), uintptr(unsafe.Pointer(bytesToProtect)), uintptr(newProt), uintptr(unsafe.Pointer(oldProt)))
 	if r1 != 0 {
 		err = fmt.Errorf("NtProtectVirtualMemory error code: %x", r1)
 	}

