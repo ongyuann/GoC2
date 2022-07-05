@@ -80,6 +80,7 @@ var LateralMovementModulesList = [...]string{
 	"delete-scheduled-task",
 	"wmi-exec",
 	"smb-exec",
+	"ps-exec",
 	"admin-check",
 }
 
