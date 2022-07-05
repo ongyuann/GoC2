@@ -32,8 +32,8 @@ var (
 	pCreateThread       = pModKernel32.NewProc("CreateThread")
 	pCreateRemoteThread = pModKernel32.NewProc("CreateRemoteThread")
 	pWriteFile          = pModKernel32.NewProc("WriteFile")
-	pWaitNamedPipe      = pModKernel32.NewProc("WaitNamedPipe")
-	pCreateFile         = pModKernel32.NewProc("CreateFile")
+	pWaitNamedPipe      = pModKernel32.NewProc("WaitNamedPipeW")
+	pCreateFile         = pModKernel32.NewProc("CreateFileW")
 	pFlushFileBuffers   = pModKernel32.NewProc("FlushFileBuffers")
 )
 
@@ -148,4 +148,46 @@ func ReadProcessMemory(hProcess syscall.Handle, lpBaseAddress uintptr, lpBuffer 
 		return false, err
 	}
 	return true, nil
+}
+
+func ReadFile(handle syscall.Handle, lpBuffer uintptr, bytesToRead uint32, numberOfBytesRead *uint32, lpOverlapped uintptr) bool {
+	result, _, _ := pWriteFile.Call(uintptr(handle), lpBuffer, uintptr(bytesToRead), uintptr(unsafe.Pointer(numberOfBytesRead)), lpOverlapped)
+	if result == 0 {
+		return false
+	}
+	return true
+}
+
+func WriteFile(handle syscall.Handle, lpBuffer uintptr, bytesToWrite uint32, numberOfBytesWritten *uint32, lpOverlapped uintptr) bool {
+	result, _, _ := pWriteFile.Call(uintptr(handle), lpBuffer, uintptr(bytesToWrite), uintptr(unsafe.Pointer(numberOfBytesWritten)), lpOverlapped)
+	if result == 0 {
+		return false
+	}
+	return true
+}
+
+func CreateFile(lpFileName string, desiredAccess uint32, dwShareMode uint32, lpSecuityAttributes uintptr, dwCreationDisposition uint32, dwFlags uint32, hTemplateFile uintptr) uintptr {
+	lpFileNamePtr, err := syscall.UTF16PtrFromString(lpFileName)
+	if err != nil {
+		return 0
+	}
+	handle, _, _ := pCreateFile.Call(uintptr(unsafe.Pointer(lpFileNamePtr)), uintptr(desiredAccess), uintptr(dwShareMode), lpSecuityAttributes, uintptr(dwCreationDisposition), uintptr(dwFlags), hTemplateFile)
+	if handle == 0 {
+		return 0
+	}
+	return handle
+}
+
+func WaitNamedPipe(pipeName string, timout uint32) int {
+	ptr, err := syscall.UTF16PtrFromString(pipeName)
+	if err != nil {
+		return 0
+	}
+	_, _, _ = pWaitNamedPipe.Call(uintptr(unsafe.Pointer(ptr)), uintptr(timout))
+	return 1
+}
+
+func FlushFileBuffers(handle syscall.Handle) bool {
+	res, _, _ := pFlushFileBuffers.Call(uintptr(handle))
+	return res != 0
 }

