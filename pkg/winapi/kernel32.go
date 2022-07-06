@@ -14,6 +14,7 @@ const (
 
 var (
 	pModKernel32        = syscall.NewLazyDLL("kernel32.dll")
+	pGetModuleHandleW   = pModKernel32.NewProc("GetModuleHandleW")
 	pGetCurrentProcess  = pModKernel32.NewProc("GetCurrentProcess")
 	pOpenProcess        = pModKernel32.NewProc("OpenProcess")
 	pGetProcessHeap     = pModKernel32.NewProc("GetProcessHeap")

