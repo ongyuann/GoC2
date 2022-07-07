@@ -36,8 +36,8 @@ var (
 	pWaitNamedPipe      = pModKernel32.NewProc("WaitNamedPipeW")
 	pCreateFile         = pModKernel32.NewProc("CreateFileW")
 	pFlushFileBuffers   = pModKernel32.NewProc("FlushFileBuffers")
-	pGlobalLock         = pModKernel32.NewProc("GlobalLock")
-	pGlobalUnlock       = pModKernel32.NewProc("GlobalUnlock")
+	PGlobalLock         = pModKernel32.NewProc("GlobalLock")
+	PGlobalUnlock       = pModKernel32.NewProc("GlobalUnlock")
 )
 
 func GetCurrentProcess() windows.Handle {

