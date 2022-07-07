@@ -20,7 +20,7 @@ func ClientResults(c *gin.Context) {
 	id := c.Param("id")
 	for key, client := range db.ClientsDatabase.Database {
 		if key == id {
-			c.IndentedJSON(http.StatusOK, client.Results)
+			c.JSON(http.StatusOK, client.Results)
 			return
 		}
 	}
