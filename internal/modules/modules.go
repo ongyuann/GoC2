@@ -6,20 +6,8 @@ package modules
 * Add Macos implementations of stuff
 
 - credentials
-* add credential manager dump from lib
 * dump process with raw syscalls.
-* add remote option to hashdump
 
-- lateral movement
-* add psexec lol
-* fix smb exec to use impersonation.
-* wmi exec doesnt need impersonation since we dont call service manager.
-* test fileless service
-* add port scan single port single host
-
-- privesc
-* add keylogger
-* add clipboard monitor -> already done just need to implement into client.
 
 * Finish sharp up clone
 
