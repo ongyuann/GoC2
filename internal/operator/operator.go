@@ -605,6 +605,12 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskSimple(c, clientId, command)
 	case "stop-clipboard-monitor":
 		PrepareTaskSimple(c, clientId, command)
+	case "launch-items":
+		PrepareTaskWithArgs(c, clientId, command, "<com.fake.plist>;<binaryPath>;<Args>: ")
+	case "login-items":
+		PrepareTaskWithOneArg(c, clientId, command, "<pathToBinary>: ")
+	case "crontab":
+		PrepareTaskWithOneArg(c, clientId, command, "<command>: ")
 	default:
 		c.Println("Task not found.")
 	}
