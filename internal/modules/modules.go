@@ -35,6 +35,7 @@ package modules
 */
 var ExecutionModulesList = [...]string{
 	"exit",
+	"memfd_create",
 	"self-inject",
 	"raw-self-inject",
 	"spawn-inject",
