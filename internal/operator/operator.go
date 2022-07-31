@@ -442,8 +442,8 @@ func PrepareExitTask(clientId string, command string) bool {
 	return true
 }
 func SendChatMessage(msg string) {
-	message := fmt.Sprintf("[ %s ] <_%s_>: %s", time.Now().Format(time.RFC1123), Operator.OperatorNick, msg)
-	err := Operator.ChatConn.WriteMessage([]byte(message))
+	//message := fmt.Sprintf("[ %s ] <_%s_>: %s", time.Now().Format(time.RFC1123), Operator.OperatorNick, msg)
+	err := Operator.ChatConn.WriteMessage([]byte(msg))
 	if err != nil {
 		log.Println(err)
 	}
@@ -914,8 +914,8 @@ func OperatorJoinChat() {
 	if err != nil {
 		log.Fatal("Error connecting to Websocket Server:", err)
 	}
-	message := fmt.Sprintf("[ %s ] <_%s_>: Joined The Server.", time.Now().Format(time.RFC1123), Operator.OperatorNick)
-	err = Operator.ChatConn.WriteMessage([]byte(message))
+	//message := fmt.Sprintf("[ %s ] <_%s_>: Joined The Server.", time.Now().Format(time.RFC1123), Operator.OperatorNick)
+	//err = Operator.ChatConn.WriteMessage([]byte(message))
 	if err != nil {
 		log.Fatal(err)
 	}

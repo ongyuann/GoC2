@@ -81,8 +81,12 @@ func (db *OperatorDB) DeleteConnection(uuid string) bool {
 	db.Lock()
 	defer db.Unlock()
 	if _, ok := db.Database[uuid]; ok {
-		db.Database[uuid].ChatConn.CloseConnection()
-		db.Database[uuid].Conn.CloseConnection()
+		if db.Database[uuid].ChatConn != nil {
+			db.Database[uuid].ChatConn.CloseConnection()
+		}
+		if db.Database[uuid].Conn != nil {
+			db.Database[uuid].Conn.CloseConnection()
+		}
 	} else {
 		return false
 	}

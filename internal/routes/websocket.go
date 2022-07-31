@@ -3,6 +3,7 @@ package routes
 import (
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 
 	"net/http"
 	"time"
@@ -29,8 +30,8 @@ func StartWebSocketServer() {
 	caCrtPem := server.ServerCertificateAuthority.PemEncodeCert(server.ServerCertificateAuthority.CACertificate)
 	server.ServerCertPool.AppendCertsFromPEM(caCrtPem.Bytes())
 	tlsConfig := &tls.Config{
-		ClientCAs:                server.ServerCertPool,
-		ClientAuth:               tls.RequireAndVerifyClientCert,
+		ClientCAs: server.ServerCertPool,
+		//ClientAuth:               tls.RequireAndVerifyClientCert,
 		MinVersion:               tls.VersionTLS12,
 		CurvePreferences:         []tls.CurveID{tls.X25519, tls.CurveP256},
 		PreferServerCipherSuites: true,
@@ -45,7 +46,7 @@ func StartWebSocketServer() {
 			},
 		*/
 	}
-	tlsConfig.BuildNameToCertificate()
+	//tlsConfig.BuildNameToCertificate()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/socketClient", SocketHandlerClient)
 	mux.HandleFunc("/socketOperator", SocketHandlerOperator)
@@ -84,7 +85,6 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 		return
 	}
-	defer conn.Close()
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
@@ -95,7 +95,11 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 			if key == operatorHandle {
 				continue
 			}
-			err := op.ChatConn.WriteMessage(message)
+			if op.ChatConn == nil {
+				continue
+			}
+			formattedMessage := fmt.Sprintf("[ %s ] <_%s_>: %s", time.Now().Format(time.RFC1123), operatorHandle, message)
+			err := op.ChatConn.WriteMessage([]byte(formattedMessage))
 			if err != nil {
 				db.OperatorsDatabase.DeleteConnection(op.OperatorNick)
 			}
@@ -158,9 +162,10 @@ func SocketHandlerOperator(w http.ResponseWriter, r *http.Request) {
 	}
 	operatorHandle := r.Header.Get("nick")
 	if operatorHandle == "" {
-		log.Log.Error().Str("service", "WebsocketChatHandler").Msgf("Error acquiring Nick from headers %v", err)
+		log.Log.Error().Str("service", "WebsocketOperatorHandler").Msgf("Error acquiring Nick from headers %v", err)
 		return
 	}
+	log.Log.Debug().Str("service", "WebsocketOperatorHandler").Msgf("Got Nick %s", operatorHandle)
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {

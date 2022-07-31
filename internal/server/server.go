@@ -52,6 +52,9 @@ func ServerHandleTaskResult(clientUUId string, message []byte) bool {
 		log.Log.Debug().Msg("Found Client")
 		db.ClientsDatabase.AddClientTaskResult(r.ClientId, *r)
 		log.Log.Debug().Msg("Added task result to client db")
+		// May Remove
+		chatMsg := fmt.Sprintf("[ %s ] <_%s_>: COMPLETED TASK FROM %s", time.Now().Format(time.RFC1123), r.ClientId, r.OperatorId)
+		db.OperatorsDatabase.BroadCastChatMessage([]byte(chatMsg))
 		return true
 	}
 	log.Log.Info().Msg("Could not relay task to client, client not found!")
@@ -118,6 +121,8 @@ func ServerHandleOperatorCheckIn(operatorUUID string, message []byte, conn *webs
 		log.Log.Error().Msgf("Failed to add new operator %s", o.OperatorNick)
 		return nil
 	}
+	chatMsg := fmt.Sprintf("[ %s ] <_%s_>: Joined the server.", time.Now().Format(time.RFC1123), operatorUUID)
+	db.OperatorsDatabase.BroadCastChatMessage([]byte(chatMsg))
 	msg := &data.Message{
 		MessageType: "OperatorCheckIn",
 		MessageData: o.ToBytes(),
@@ -156,12 +161,22 @@ func ServerHandleCheckIn(clientUUID string, message []byte, clientConnection *we
 	return msg
 }
 
+func ServerBroadCastMessage(message string) {
+	log.Log.Debug().Msg("Broadcasting message...")
+	for _, operator := range db.OperatorsDatabase.Database {
+		if operator.ChatConn == nil {
+			continue
+		}
+		message := fmt.Sprintf("[ %s ] <_%s_>: %s", time.Now().Format(time.RFC1123), "SERVER_MESSAGE", message)
+		operator.ChatConn.WriteMessage([]byte(message))
+	}
+}
+
 func ServerCleanClientConnections() {
 	log.Log.Debug().Msg("Cleaning Up Inactive Connections...")
 	data := []byte("u there?")
 	var operatorsThatLeft []string
 	var clientsThatLeft []string
-	// could add a clients that left message to the chat just like operators below.
 	for key, client := range db.ClientsDatabase.Database {
 		err := client.WSConn.WriteMessage(data)
 		if err != nil {
@@ -187,27 +202,19 @@ func ServerCleanClientConnections() {
 		}
 	}
 	// send message about who left
-	for key, operator := range db.OperatorsDatabase.Database {
+	for _, operator := range db.OperatorsDatabase.Database {
+		if operator.ChatConn == nil {
+			continue
+		}
 		for i := range operatorsThatLeft {
-			message := fmt.Sprintf("[ %s ] <_%s_>: Left the server.", time.Now().Format(time.RFC1123), operatorsThatLeft[i])
-			err := operator.ChatConn.WriteMessage([]byte(message))
-			if err != nil {
-				log.Log.Debug().Msgf("Removing %s Operator From List\n", key)
-				db.OperatorsDatabase.DeleteConnection(key)
-				log.Log.Debug().Msgf("Cant Reach Operator Closing Connection: %s", err)
-				db.OperatorsDatabase.UpdateOnline(key, false)
-			}
+			messsage := fmt.Sprintf("%s Left the server.", operatorsThatLeft[i])
+			ServerBroadCastMessage(messsage)
 		}
 		for i := range clientsThatLeft {
-			message := fmt.Sprintf("[ %s ] <_%s_>: Left the server.", time.Now().Format(time.RFC1123), clientsThatLeft[i])
-			err := operator.ChatConn.WriteMessage([]byte(message))
-			if err != nil {
-				log.Log.Debug().Msgf("Removing %s Operator From List\n", key)
-				db.OperatorsDatabase.DeleteConnection(key)
-				log.Log.Debug().Msgf("Cant Reach Operator Closing Connection: %s", err)
-				db.OperatorsDatabase.UpdateOnline(key, false)
-			}
+			messsage := fmt.Sprintf("%s Left the server.", clientsThatLeft[i])
+			ServerBroadCastMessage(messsage)
 		}
+
 	}
 }
 

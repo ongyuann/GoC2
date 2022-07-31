@@ -24,7 +24,7 @@ func ClientResults(c *gin.Context) {
 			return
 		}
 	}
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Client not Found."})
+	c.JSON(http.StatusNotFound, gin.H{"message": "Client not Found."})
 }
 
 func ClientTasks(c *gin.Context) {
@@ -32,11 +32,11 @@ func ClientTasks(c *gin.Context) {
 	id := c.Param("id")
 	for key, client := range db.ClientsDatabase.Database {
 		if key == id {
-			c.IndentedJSON(http.StatusOK, client.Tasks)
+			c.JSON(http.StatusOK, client.Tasks)
 			return
 		}
 	}
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Client not Found."})
+	c.JSON(http.StatusNotFound, gin.H{"message": "Client not Found."})
 }
 
 func ClientEndpoint(c *gin.Context) {
@@ -44,11 +44,11 @@ func ClientEndpoint(c *gin.Context) {
 	id := c.Param("id")
 	for key, client := range db.ClientsDatabase.Database {
 		if key == id {
-			c.IndentedJSON(http.StatusOK, client)
+			c.JSON(http.StatusOK, client)
 			return
 		}
 	}
-	c.IndentedJSON(http.StatusNotFound, gin.H{"message": "Client not Found."})
+	c.JSON(http.StatusNotFound, gin.H{"message": "Client not Found."})
 }
 
 func ClientsEndpoint(c *gin.Context) {
