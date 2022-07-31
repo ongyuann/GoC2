@@ -24,6 +24,7 @@ type Client struct {
 	Username             string          `json:"user_name"`
 	ProcessName          string          `json:"process_name"`
 	ProcessId            int             `json:"process_id"`
+	OS                   string          `json:"os"`
 	Arch                 string          `json:"arch"`
 	Integrity            string          `json:"integrity"`
 	LastSeen             time.Time       `json:"last_seen"`
@@ -77,6 +78,7 @@ func NewClient() *Client {
 	user, err := user.Current()
 	process, err := os.Executable()
 	var arch string = runtime.GOARCH
+	var osName = runtime.GOOS
 	var integrity string
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -93,6 +95,7 @@ func NewClient() *Client {
 		ProcessId:   os.Getpid(),
 		Online:      true,
 		Integrity:   integrity,
+		OS:          osName,
 		Arch:        arch,
 		PublicIp:    GetPublicIp(),
 	}

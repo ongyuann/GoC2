@@ -3,7 +3,7 @@
 
 package enumlocaluser
 
-import "os/exec"
+import "os"
 
 func EnumDomain() (string, error) {
 	return "Not Available On This Platform", nil

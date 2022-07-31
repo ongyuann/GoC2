@@ -4,8 +4,8 @@
 package scanner
 
 import (
+	"errors"
 	"fmt"
-	"log"
 	"net"
 	"time"
 )

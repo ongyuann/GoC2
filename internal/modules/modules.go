@@ -35,6 +35,7 @@ package modules
 */
 var ExecutionModulesList = [...]string{
 	"exit",
+	"memfd_create",
 	"self-inject",
 	"raw-self-inject",
 	"spawn-inject",
@@ -98,15 +99,17 @@ var PersistenceModulesList = [...]string{
 	"powershell-profile",
 	"run-key",
 	"logon-script",
-	"com-hijack", // need something that finds one for you.
+	//"com-hijack", // todo need something that finds one for you.
 	"scheduled-task",
+	"launch-items",
+	"login-items",
+	"crontab",
 	// bashrc
 	// crontab
 	// launchd
 	// systemd
 	// "startup-folder", //todo
-	//"wmi-event-sub", // todo sektor 7
-	// com-persistence-check
+	// "wmi-event-sub", // todo sektor 7
 }
 
 var EnumerationModulesList = [...]string{
