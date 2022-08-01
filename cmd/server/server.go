@@ -38,7 +38,7 @@ func main() {
 		select {
 		case <-server.ServerInterrupt:
 			log.Log.Debug().Msg("Received SIGINT interrupt signal. Closing all pending connections")
-			server.ServerShutDownAllConnections()
+			//server.ServerShutDownAllConnections()
 			close(server.ServerDone)
 			select {
 			case <-server.ServerDone:

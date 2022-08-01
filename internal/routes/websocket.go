@@ -19,19 +19,14 @@ import (
 
 var SocketUpgrader = websocket.Upgrader{}
 
-func TestHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Test!"))
-}
-
 func StartWebSocketServer() {
 	// setup mTLS for websocket endpoints.
-	log.Log.Debug().Msg("Setting up mTLS...")
+	//log.Log.Debug().Msg("Setting up mTLS...")
 	caCrtPem := server.ServerCertificateAuthority.PemEncodeCert(server.ServerCertificateAuthority.CACertificate)
 	server.ServerCertPool.AppendCertsFromPEM(caCrtPem.Bytes())
 	tlsConfig := &tls.Config{
 		ClientCAs: server.ServerCertPool,
-		//ClientAuth:               tls.RequireAndVerifyClientCert,
+		//ClientAuth:               tls.RequireAndVerifyClientCert, <- mtls flag
 		MinVersion:               tls.VersionTLS12,
 		CurvePreferences:         []tls.CurveID{tls.X25519, tls.CurveP256},
 		PreferServerCipherSuites: true,
@@ -46,7 +41,7 @@ func StartWebSocketServer() {
 			},
 		*/
 	}
-	//tlsConfig.BuildNameToCertificate()
+	tlsConfig.BuildNameToCertificate()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/socketClient", SocketHandlerClient)
 	mux.HandleFunc("/socketOperator", SocketHandlerOperator)
@@ -75,6 +70,7 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		log.Log.Error().Str("service", "WebsocketChatHandler").Msgf("Error during connection upgradation:", err)
 		return
 	}
+	// Add Check For Server Secret Here
 	operatorHandle := r.Header.Get("nick")
 	if operatorHandle == "" {
 		log.Log.Error().Str("service", "WebsocketChatHandler").Msgf("Error acquiring Nick from headers %v", err)

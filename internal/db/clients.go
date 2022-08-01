@@ -109,7 +109,7 @@ func (db *ClientDB) DeleteConnection(uuid string) bool {
 	return false
 }
 
-func (db *ClientDB) SendMessage(uuid string, data []byte) bool {
+func (db *ClientDB) SendTask(uuid string, data []byte) bool {
 	db.Lock()
 	defer db.Unlock()
 	if client, ok := db.Database[uuid]; ok {

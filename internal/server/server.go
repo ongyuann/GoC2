@@ -85,7 +85,7 @@ func ServerHandleTask(message []byte) bool {
 			log.Log.Error().Msg("Failed to add task to client database")
 			return false
 		}
-		ok = db.ClientsDatabase.SendMessage(t.ClientId, data.ToBytes())
+		ok = db.ClientsDatabase.SendTask(t.ClientId, data.ToBytes())
 		if !ok {
 			log.Log.Error().Msg("Failed to send task to client")
 			return false
@@ -218,6 +218,7 @@ func ServerCleanClientConnections() {
 	}
 }
 
+/*
 func ServerShutDownAllConnections() {
 	for key, _ := range db.ClientsDatabase.Database {
 		exitMessage := data.Message{
@@ -233,3 +234,4 @@ func ServerShutDownAllConnections() {
 		}
 	}
 }
+*/
