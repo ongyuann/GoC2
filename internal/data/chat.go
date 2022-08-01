@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+// yo we never used this lol.
+
 type ChatMessage struct {
 	OperatorNick string    `json:"operator_nick"`
 	Message      string    `json:"message"`

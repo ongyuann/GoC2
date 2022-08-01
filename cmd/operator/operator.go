@@ -34,10 +34,17 @@ func main() {
 		Certificates:       []tls.Certificate{operator.Operator.OperatorTLSCertificate},
 	}
 	socketUrl := fmt.Sprintf("wss://%s:443/%s", operator.ServerHostName, "socketOperator")
-	c, _, err := websocket.DefaultDialer.Dial(socketUrl, http.Header{"nick": []string{operator.Operator.OperatorNick}})
+	c, _, err := websocket.DefaultDialer.Dial(socketUrl,
+		http.Header{
+			"nick":          []string{operator.Operator.OperatorNick},
+			"shared-secret": []string{operator.ServerSharedSecret},
+		})
+	if err != nil {
+		log.Fatal("Error connecting to websocket server: ", err)
+	}
 	operator.Operator.Conn = data.NewConnection(c)
 	if err != nil {
-		log.Fatal("Error connecting to Websocket Server:", err)
+		log.Fatal("Error connecting to Websocket Server: ", err)
 	}
 	go operator.OperatorReceiveHandler(operator.Operator)
 	operator.OperatorDoCheckIn(operator.Operator)

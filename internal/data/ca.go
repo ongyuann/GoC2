@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"log"
 	"math/big"
 	"net"
 	"os"
@@ -188,6 +187,5 @@ func (ca *CertAuthority) CreateWriteServerCertsToDisk() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Generated Signed Server Certificates.\n")
 	return nil
 }

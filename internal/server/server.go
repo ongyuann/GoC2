@@ -162,7 +162,7 @@ func ServerHandleCheckIn(clientUUID string, message []byte, clientConnection *we
 }
 
 func ServerBroadCastMessage(message string) {
-	log.Log.Debug().Msg("Broadcasting message...")
+	log.Log.Debug().Msgf("Broadcasting Chat message %s", message)
 	for _, operator := range db.OperatorsDatabase.Database {
 		if operator.ChatConn == nil {
 			continue

@@ -70,10 +70,16 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		log.Log.Error().Str("service", "WebsocketChatHandler").Msgf("Error during connection upgradation:", err)
 		return
 	}
-	// Add Check For Server Secret Here
 	operatorHandle := r.Header.Get("nick")
+	sharedSecret := r.Header.Get("shared-secret")
+	if sharedSecret != server.ServerSharedSecret {
+		log.Log.Error().Str("service", "WebsocketChatHandler").Msgf("Error closing connection invalid shared secret supplied -> %s", sharedSecret)
+		conn.Close()
+		return
+	}
 	if operatorHandle == "" {
 		log.Log.Error().Str("service", "WebsocketChatHandler").Msgf("Error acquiring Nick from headers %v", err)
+		conn.Close()
 		return
 	}
 	if !db.OperatorsDatabase.AddChatConnection(operatorHandle, conn) {
@@ -81,6 +87,8 @@ func ChatHandler(w http.ResponseWriter, r *http.Request) {
 		conn.Close()
 		return
 	}
+	log.Log.Debug().Str("service", "WebsocketChatHandler").Msgf("Got Nick -> %s", operatorHandle)
+	log.Log.Debug().Str("service", "WebsocketChatHandler").Msgf("Got Shared Secret -> %s", sharedSecret)
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
@@ -159,9 +167,17 @@ func SocketHandlerOperator(w http.ResponseWriter, r *http.Request) {
 	operatorHandle := r.Header.Get("nick")
 	if operatorHandle == "" {
 		log.Log.Error().Str("service", "WebsocketOperatorHandler").Msgf("Error acquiring Nick from headers %v", err)
+		conn.Close()
 		return
 	}
-	log.Log.Debug().Str("service", "WebsocketOperatorHandler").Msgf("Got Nick %s", operatorHandle)
+	sharedSecret := r.Header.Get("shared-secret")
+	if sharedSecret != server.ServerSharedSecret {
+		log.Log.Error().Str("service", "WebsocketChatHandler").Msgf("Error closing connection invalid shared secret supplied -> %s", sharedSecret)
+		conn.Close()
+		return
+	}
+	log.Log.Debug().Str("service", "WebsocketOperatorHandler").Msgf("Got Nick -> %s", operatorHandle)
+	log.Log.Debug().Str("service", "WebsocketOperatorHandler").Msgf("Got Shared Secret -> %s", sharedSecret)
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {

