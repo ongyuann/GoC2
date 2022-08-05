@@ -102,11 +102,13 @@ func (db *ClientDB) DeleteConnection(uuid string) bool {
 	db.Lock()
 	defer db.Unlock()
 	db.Database[uuid].WSConn.CloseConnection()
-	delete(db.Database, uuid)
-	if _, ok := db.Database[uuid]; !ok {
-		return true
-	}
-	return false
+	//delete(db.Database, uuid)
+	/*
+		if _, ok := db.Database[uuid]; !ok {
+			return true
+		}
+	*/
+	return true
 }
 
 func (db *ClientDB) SendTask(uuid string, data []byte) bool {

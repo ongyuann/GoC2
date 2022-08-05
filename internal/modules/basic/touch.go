@@ -3,17 +3,20 @@ package basic
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 )
 
 func Touch(args []string) (string, error) {
+	log.Println(args)
+	log.Println(len(args))
 	if len(args) < 2 {
 		return "", errors.New("Not Enough Args")
 	}
 	filePath := args[0]
 	fileContents := args[1:]
-	contents := strings.Join(fileContents, ";")
+	contents := strings.Join(fileContents, " ")
 	_, err := os.Stat(filePath)
 	if !errors.Is(err, os.ErrNotExist) {
 		return "", err

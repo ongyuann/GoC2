@@ -94,7 +94,7 @@ func (db *OperatorDB) DeleteConnection(uuid string) bool {
 	if _, ok := db.Database[uuid]; !ok {
 		return true
 	}
-	return false
+	return true
 }
 
 func (db *OperatorDB) AddChatConnection(uuid string, conn *websocket.Conn) bool {

@@ -178,6 +178,9 @@ func ServerCleanClientConnections() {
 	var operatorsThatLeft []string
 	var clientsThatLeft []string
 	for key, client := range db.ClientsDatabase.Database {
+		if !client.Online {
+			continue // if connection is closed ignore. else server crashes.
+		}
 		err := client.WSConn.WriteMessage(data)
 		if err != nil {
 			log.Log.Debug().Msgf("Removing %s Client From List\n", key)
@@ -192,6 +195,9 @@ func ServerCleanClientConnections() {
 	}
 	// Operators that left the server
 	for key, operator := range db.OperatorsDatabase.Database {
+		if !operator.Online {
+			continue // if connection is closed ignore. else server crashes.
+		}
 		err := operator.Conn.WriteMessage(data)
 		if err != nil {
 			log.Log.Debug().Msgf("Removing %s Operator From List\n", key)

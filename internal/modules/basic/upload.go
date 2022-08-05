@@ -6,7 +6,7 @@ import (
 )
 
 func UploadFile(fileBytes []byte, path string) (string, error) {
-	file, err := os.CreateTemp(path, "*.bin")
+	file, err := os.Create(path)
 	if err != nil {
 		return "", err
 	}
