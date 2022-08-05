@@ -10,6 +10,9 @@ import (
 )
 
 func KillProcess(pids string) (string, error) {
+	if pids == "" {
+		return "", errors.New("Not Enough Args")
+	}
 	pid, err := strconv.Atoi(pids)
 	if err != nil {
 		return "", err

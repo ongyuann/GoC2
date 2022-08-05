@@ -5,12 +5,16 @@ import (
 	"bytes"
 	"compress/gzip"
 	b64 "encoding/base64"
+	"errors"
 	"io/ioutil"
 	"log"
 	"os"
 )
 
 func DownloadFile(filePath string) (string, error) {
+	if filePath == "" {
+		return "", errors.New("Not Enough Args")
+	}
 	f, err := os.Open(filePath)
 	if err != nil {
 		return "", err

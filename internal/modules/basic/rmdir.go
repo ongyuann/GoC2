@@ -8,6 +8,9 @@ import (
 )
 
 func DeleteDirectory(path string) (string, error) {
+	if path == "" {
+		return "", errors.New("Not Enough Args")
+	}
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		log.Println(err, 1)
 		return "", err

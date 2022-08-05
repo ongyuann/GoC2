@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/latortuga71/GoC2/internal/data"
 	"github.com/latortuga71/GoC2/internal/db"
 	"github.com/latortuga71/GoC2/internal/log"
 )
@@ -53,7 +54,14 @@ func ClientEndpoint(c *gin.Context) {
 
 func ClientsEndpoint(c *gin.Context) {
 	LogRequest(c)
-	c.JSON(200, db.ClientsDatabase.Database)
+	better := make(map[string]data.Client)
+	// hack to remove tasks and results.
+	for _, x := range db.ClientsDatabase.Database {
+		x.Tasks = nil
+		x.Results = nil
+		better[x.ClientId] = x
+	}
+	c.JSON(200, better)
 }
 
 func HealthEndpoint(c *gin.Context) {

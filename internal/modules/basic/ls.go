@@ -7,6 +7,9 @@ import (
 
 func ListDirectory(path string) (string, error) {
 	var result string
+	if path == "" {
+		path = "."
+	}
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		return "", err

