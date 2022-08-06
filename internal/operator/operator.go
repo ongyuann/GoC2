@@ -280,6 +280,8 @@ func PrepareShellcodeTask(c *ishell.Context, clientId string, command string, pr
 		return false
 	}
 	localFilePath := argsArray[0]
+	argsArray[0] = argsArray[1]
+	argsArray = argsArray[0:]
 	dataBytes, err := os.ReadFile(localFilePath)
 	if err != nil {
 		c.Println(err.Error())
@@ -506,6 +508,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "mkdir":
 		PrepareTaskWithArgs(c, clientId, command, "<RemoteFilePath>: ")
 	case "rmdir":
+		PrepareTaskWithArgs(c, clientId, command, "<RemoteFilePath>: ")
+	case "rm":
 		PrepareTaskWithArgs(c, clientId, command, "<RemoteFilePath>: ")
 	case "killproc":
 		PrepareTaskWithArgs(c, clientId, command, "<Pid>: ")

