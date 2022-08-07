@@ -652,6 +652,27 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	}
 }
 
+func GetOnlineClientIds() ([]string, error) {
+	ids := make([]string, 0)
+	endpoint := fmt.Sprintf("https://%s:80/v1/clients", ServerHostName)
+	body, err := DoGetRequest(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	clients := make(map[string]data.Client)
+	err = json.Unmarshal(body, &clients)
+	if err != nil {
+		return nil, err
+	}
+	for k := range clients {
+		if clients[k].Online {
+			ids = append(ids, k)
+		}
+
+	}
+	return ids, nil
+}
+
 func GetClientIds() ([]string, error) {
 	endpoint := fmt.Sprintf("https://%s:80/v1/clients", ServerHostName)
 	resp, err := http.Get(endpoint)
@@ -815,7 +836,7 @@ func OperatorMainLoop() {
 		Name: "interact",
 		Help: "interact with agents.",
 		Func: func(c *ishell.Context) {
-			clientsArray, err := GetClientIds()
+			clientsArray, err := GetOnlineClientIds() //GetClientIds()
 			if err != nil {
 				c.Printf("%s", err.Error())
 				return
