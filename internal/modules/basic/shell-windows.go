@@ -5,16 +5,16 @@ package basic
 
 import (
 	"os/exec"
+	"strings"
 	"syscall"
 )
 
-func ShellCommand(args []string) (string, error) {
-	fixedArgs := make([]string, len(args)+1)
-	fixedArgs[0] = "/c"
-	for x := 1; x < len(args); x++ {
-		fixedArgs[x] = args[x]
-	}
-	cmd := exec.Command("cmd", fixedArgs...)
+func ShellCommand(args string) (string, error) {
+	split := strings.Split(args, " ")
+	fix := make([]string, 1)
+	fix[0] = "/c"
+	fix = append(fix, split...)
+	cmd := exec.Command("cmd", fix...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	result, cmdError := cmd.CombinedOutput()
 	if cmdError != nil {

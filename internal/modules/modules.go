@@ -132,6 +132,7 @@ var CredentialsModulesList = [...]string{
 	"dump-secrets",
 	"dump-secrets-remote",
 	"dump-process",
+	"dump-credential-mgr",
 }
 
 var ImpersonationModulesList = [...]string{

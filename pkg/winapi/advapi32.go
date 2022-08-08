@@ -23,6 +23,7 @@ var (
 	pLookupAccountSid        = pModAdvapi32.NewProc("LookupAccountSidA")
 	pRegSaveKeyExW           = pModAdvapi32.NewProc("RegSaveKeyExW")
 	pRegConnectRegistry      = pModAdvapi32.NewProc("RegConnectRegistryW")
+	pCredBackupCredentials   = pModAdvapi32.NewProc("CredBackupCredentials")
 )
 
 const (
@@ -37,6 +38,15 @@ const (
 	// Tell windows not to show the window
 	ShowWindow = 0
 )
+
+func CredBackupCredentials(userToken windows.Handle, outFile string) error {
+	outfilePtr := syscall.StringToUTF16Ptr(outFile)
+	res, _, err := pCredBackupCredentials.Call(uintptr(userToken), uintptr(unsafe.Pointer(outfilePtr)), uintptr(NullRef), 0, 0)
+	if res == 0 {
+		return err
+	}
+	return nil
+}
 
 func RegSaveKeyExW(hKey windows.Handle, outFile string, lpsecuityAttributes uintptr, flags uint32) error {
 	outfilePtr := syscall.StringToUTF16Ptr(outFile)
