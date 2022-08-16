@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -78,7 +80,61 @@ func OperatorsEndpoint(c *gin.Context) {
 	c.JSON(200, db.OperatorsDatabase.Database)
 }
 
-func StartRestAPI() {
+func verifyListener(l *data.Listener) error {
+	if l.Listener > 1 {
+		return errors.New("Invalid Listener Type")
+	}
+	return nil
+}
+
+func DeleteListenerEndpoint(c *gin.Context) {
+	LogRequest(c)
+	port := c.Param("port")
+	// code to delete a listener
+	if !db.ListenerDatabase.DeleteListener(port) {
+		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Listener could not be deleted"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"Status": "Deleted Listener"})
+}
+
+func CreateListenerEndpoint(c *gin.Context) {
+	LogRequest(c)
+	listenerPayload := &data.Listener{}
+	err := c.BindJSON(listenerPayload)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Invalid Json"})
+		return
+	}
+	err = verifyListener(listenerPayload)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Listener type invalid"})
+		return
+	}
+	// code to startup a new listener.
+	if !db.ListenerDatabase.AddListener("Client Listener", listenerPayload.Port, listenerPayload.Listener) {
+		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Listener already active."})
+	}
+	// pass channel so we can listen on it. for shutdown
+	if listenerPayload.Listener == data.WebsocketListener {
+		go StartWebSocketListener(listenerPayload.Port, db.ListenerDatabase.Database[listenerPayload.Port].ShutdownChannel)
+		c.JSON(http.StatusCreated, gin.H{"Status": "Created WebSocketListener"})
+		return
+	}
+	if listenerPayload.Listener == data.HTTPSListener {
+		//go StartWebSocketListener(listenerPayload.Port, db.ListenerDatabase.Database[listenerPayload.Port].ShutdownChannel)
+		c.JSON(http.StatusCreated, gin.H{"Status": "TODO Created HTTPS Listener"})
+		return
+	}
+
+}
+
+func GetListenerEndpoint(c *gin.Context) {
+	LogRequest(c)
+	c.JSON(200, db.ListenerDatabase.Database)
+}
+
+func StartRestAPI(port string) {
 	if !DebugMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -89,6 +145,9 @@ func StartRestAPI() {
 	}
 	v1 := router.Group("/v1")
 	{
+		v1.DELETE("/listener/:port", DeleteListenerEndpoint)
+		v1.GET("/listeners", GetListenerEndpoint)
+		v1.POST("/listeners", CreateListenerEndpoint)
 		v1.GET("/health", HealthEndpoint)
 		v1.GET("/clients", ClientsEndpoint)
 		v1.GET("/client/:id", ClientEndpoint)
@@ -96,6 +155,6 @@ func StartRestAPI() {
 		v1.GET("/client/:id/results", ClientResults)
 		v1.GET("/operators", OperatorsEndpoint)
 	}
-	err := router.RunTLS("0.0.0.0:80", "../certs/server.cert", "../certs/server.key")
+	err := router.RunTLS(fmt.Sprintf("0.0.0.0:%s", port), "../certs/server.cert", "../certs/server.key")
 	log.Log.Fatal().Str("service", "RestAPI").Msgf("%v", err)
 }

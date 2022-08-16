@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -19,7 +20,7 @@ import (
 
 var SocketUpgrader = websocket.Upgrader{}
 
-func StartWebSocketServer() {
+func StartWebSocketListener(port string, shutdownChannel chan int) {
 	// setup mTLS for websocket endpoints.
 	//log.Log.Debug().Msg("Setting up mTLS...")
 	caCrtPem := server.ServerCertificateAuthority.PemEncodeCert(server.ServerCertificateAuthority.CACertificate)
@@ -44,6 +45,47 @@ func StartWebSocketServer() {
 	tlsConfig.BuildNameToCertificate()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/socketClient", SocketHandlerClient)
+	server := http.Server{
+		Addr:         fmt.Sprintf(":%s", port),
+		Handler:      mux,
+		TLSConfig:    tlsConfig,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+	go server.ListenAndServeTLS("../certs/server.cert", "../certs/server.key")
+	log.Log.Info().Msgf("Started Websocket listener on %s", port)
+	<-shutdownChannel
+	log.Log.Info().Msgf("Shutting down websocket listener on %s", port)
+	server.Shutdown(context.Background())
+	shutdownChannel <- 1
+}
+
+func StartWebSocketOperatorServer(port string) {
+	// setup mTLS for websocket endpoints.
+	//log.Log.Debug().Msg("Setting up mTLS...")
+	caCrtPem := server.ServerCertificateAuthority.PemEncodeCert(server.ServerCertificateAuthority.CACertificate)
+	server.ServerCertPool.AppendCertsFromPEM(caCrtPem.Bytes())
+	tlsConfig := &tls.Config{
+		ClientCAs: server.ServerCertPool,
+		//ClientAuth:               tls.RequireAndVerifyClientCert, <- mtls flag
+		MinVersion:               tls.VersionTLS12,
+		CurvePreferences:         []tls.CurveID{tls.X25519, tls.CurveP256},
+		PreferServerCipherSuites: true,
+		/*
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			},
+		*/
+	}
+	tlsConfig.BuildNameToCertificate()
+	mux := http.NewServeMux()
+	//mux.HandleFunc("/socketClient", SocketHandlerClient)
 	mux.HandleFunc("/socketOperator", SocketHandlerOperator)
 	mux.HandleFunc("/operatorChat", ChatHandler)
 	go func() {
@@ -53,7 +95,7 @@ func StartWebSocketServer() {
 		}
 	}()
 	server := http.Server{
-		Addr:         ":443",
+		Addr:         fmt.Sprintf(":%s", port),
 		Handler:      mux,
 		TLSConfig:    tlsConfig,
 		ReadTimeout:  5 * time.Second,
@@ -118,6 +160,7 @@ func SocketHandlerClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	clientUUID := data.GenerateUUID()
+
 	defer conn.Close()
 	for {
 		_, message, err := conn.ReadMessage()

@@ -16,7 +16,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to initialize client.")
 	}
-	socketUrl := fmt.Sprintf("wss://%s:443/socketClient", client.ServerHostName)
+	socketUrl := fmt.Sprintf("wss://%s:%s/socketClient", client.ServerHostName, client.ServerPort)
 	websocket.DefaultDialer.TLSClientConfig = &tls.Config{
 		InsecureSkipVerify: true,
 		RootCAs:            client.Client.ClientCaCertPool,

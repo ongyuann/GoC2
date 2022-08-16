@@ -14,6 +14,8 @@ func main() {
 	// setup
 	debug := flag.Bool("debug", false, "sets log level to debug")
 	secret := flag.String("secret", "", "set the (16 Byte) secret that is needed to acquire a client certificate.")
+	restPort := flag.String("rest", "8000", "set port for rest api")
+	operatorsWSPort := flag.String("ws", "8443", "set port for operators websocket connection")
 	flag.Parse()
 	log.SetLevelInfo()
 	if *debug {
@@ -35,10 +37,10 @@ func main() {
 	log.Log.Info().Msg("Running Certificate Authority.")
 	go routes.StartCertificateAuthority()
 	<-server.ServerCaStarted
-	go routes.StartRestAPI()
-	log.Log.Info().Msg("Running RestAPI.")
-	go routes.StartWebSocketServer()
-	log.Log.Info().Msg("Running WebSocketServer.")
+	go routes.StartRestAPI(*restPort)
+	log.Log.Info().Msgf("Running RestAPI on %s.", *restPort)
+	go routes.StartWebSocketOperatorServer(*operatorsWSPort)
+	log.Log.Info().Msgf("Running WebSocketOperatorServer on %s.", *operatorsWSPort)
 	for {
 		select {
 		case <-server.ServerInterrupt:

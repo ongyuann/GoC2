@@ -31,6 +31,8 @@ var OperatorInterrupt chan os.Signal
 var Operator *data.Operator
 var ServerSharedSecret string
 var ServerHostName string
+var ServerRestPort string
+var ServerWSPort string
 var InChatRoom bool
 
 func init() {
@@ -57,7 +59,7 @@ func OperatorAcquireCertificate() error {
 	if err != nil {
 		log.Fatal(err)
 	}
-	r, err := client.Post(fmt.Sprintf("https://%s:80/about/contact", ServerHostName), "application/json", bytes.NewBuffer(certBytes))
+	r, err := client.Post(fmt.Sprintf("https://%s:%s/about/contact", ServerHostName, ServerRestPort), "application/json", bytes.NewBuffer(certBytes))
 	if err != nil {
 		return err
 	}
@@ -656,7 +658,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 
 func GetOnlineClientIds() ([]string, error) {
 	ids := make([]string, 0)
-	endpoint := fmt.Sprintf("https://%s:80/v1/clients", ServerHostName)
+	endpoint := fmt.Sprintf("https://%s:%s/v1/clients", ServerHostName, ServerRestPort)
 	body, err := DoGetRequest(endpoint)
 	if err != nil {
 		return nil, err
@@ -676,7 +678,7 @@ func GetOnlineClientIds() ([]string, error) {
 }
 
 func GetClientIds() ([]string, error) {
-	endpoint := fmt.Sprintf("https://%s:80/v1/clients", ServerHostName)
+	endpoint := fmt.Sprintf("https://%s:%s/v1/clients", ServerHostName, ServerRestPort)
 	resp, err := http.Get(endpoint)
 	if err != nil {
 		return nil, err
@@ -699,6 +701,37 @@ func GetClientIds() ([]string, error) {
 		return nil, errors.New("No Clients.")
 	}
 	return clientsArray, nil
+}
+
+func DoDeleteRequest(endpoint string) ([]byte, error) {
+	c := http.Client{}
+	del, err := http.NewRequest(http.MethodDelete, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.Do(del)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+func DoPostRequest(endpoint string, payload []byte) ([]byte, error) {
+	resp, err := http.Post(endpoint, "application/json", bytes.NewBuffer(payload))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
 }
 
 func DoGetRequest(endpoint string) ([]byte, error) {
@@ -729,7 +762,7 @@ func OperatorMainLoop() {
 				return
 			}
 			choice := c.MultiChoice(clientsArray, "Choose a client")
-			endpoint := fmt.Sprintf("https://%s:80/v1/client/%s/results", ServerHostName, clientsArray[choice])
+			endpoint := fmt.Sprintf("https://%s:%s/v1/client/%s/results", ServerHostName, ServerRestPort, clientsArray[choice])
 			body, err := DoGetRequest(endpoint)
 			if err != nil {
 				c.Printf("%s", err.Error())
@@ -782,7 +815,7 @@ func OperatorMainLoop() {
 				return
 			}
 			choice := c.MultiChoice(clientsArray, "Choose a client")
-			endpoint := fmt.Sprintf("https://%s:80/v1/client/%s/tasks", ServerHostName, clientsArray[choice])
+			endpoint := fmt.Sprintf("https://%s:%s/v1/client/%s/tasks", ServerHostName, ServerRestPort, clientsArray[choice])
 			body, err := DoGetRequest(endpoint)
 			if err != nil {
 				c.Printf("%s", err.Error())
@@ -812,7 +845,7 @@ func OperatorMainLoop() {
 		Func: func(c *ishell.Context) {
 			defer c.ShowPrompt(true) // yes, revert after login.
 			c.ShowPrompt(false)
-			endpoint := fmt.Sprintf("https://%s:80/v1/clients", ServerHostName)
+			endpoint := fmt.Sprintf("https://%s:%s/v1/clients", ServerHostName, ServerRestPort)
 			body, err := DoGetRequest(endpoint)
 			if err != nil {
 				c.Printf("%s", err.Error())
@@ -832,6 +865,75 @@ func OperatorMainLoop() {
 			}
 			clean, err := json.MarshalIndent(clients, "", " ")
 			fmt.Printf("%s\n", string(clean))
+		},
+	})
+	shell.AddCmd(&ishell.Cmd{
+		Name: "listeners",
+		Help: "show listeners",
+		Func: func(c *ishell.Context) {
+			defer c.ShowPrompt(true) // yes, revert after login.
+			c.ShowPrompt(false)
+			endpoint := fmt.Sprintf("https://%s:%s/v1/listeners", ServerHostName, ServerRestPort)
+			body, err := DoGetRequest(endpoint)
+			if err != nil {
+				c.Printf("%s", err.Error())
+				return
+			}
+			clients := make(map[string]data.Listener)
+			err = json.Unmarshal(body, &clients)
+			if err != nil {
+				c.Printf("%s", err.Error())
+				return
+			}
+			clean, err := json.MarshalIndent(clients, "", " ")
+			fmt.Printf("%s\n", string(clean))
+		},
+	})
+	shell.AddCmd(&ishell.Cmd{
+		Name: "delete_listener",
+		Help: "delete listeners",
+		Func: func(c *ishell.Context) {
+			defer c.ShowPrompt(true) // yes, revert after login.
+			c.ShowPrompt(false)
+			c.Print("Enter port to shutdown: ")
+			port := c.ReadLine()
+			endpoint := fmt.Sprintf("https://%s:%s/v1/listener/%s", ServerHostName, ServerRestPort, port)
+			body, err := DoDeleteRequest(endpoint)
+			if err != nil {
+				c.Printf("%s", err.Error())
+				return
+			}
+			fmt.Printf("%s\n", string(body))
+		},
+	})
+	shell.AddCmd(&ishell.Cmd{
+		Name: "create_listener",
+		Help: "create listeners",
+		Func: func(c *ishell.Context) {
+			defer c.ShowPrompt(true) // yes, revert after login.
+			c.ShowPrompt(false)
+			endpoint := fmt.Sprintf("https://%s:%s/v1/listeners", ServerHostName, ServerRestPort)
+			c.Print("Enter Port: ")
+			port := c.ReadLine()
+			c.Print("Enter Label: ")
+			label := c.ReadLine()
+			choice := c.MultiChoice([]string{"WS", "HTTPS"}, "Choose Listener Type")
+			listener := data.Listener{
+				Port:     port,
+				Listener: data.ListenerType(choice),
+				Label:    label,
+			}
+			data, err := json.Marshal(listener)
+			if err != nil {
+				c.Printf("%s", err.Error())
+				return
+			}
+			body, err := DoPostRequest(endpoint, data)
+			if err != nil {
+				c.Printf("%s", err.Error())
+				return
+			}
+			fmt.Printf("%s\n", string(body))
 		},
 	})
 	shell.AddCmd(&ishell.Cmd{
@@ -908,7 +1010,7 @@ func OperatorMainLoop() {
 		Name: "operator",
 		Help: "show operators.",
 		Func: func(c *ishell.Context) {
-			endpoint := fmt.Sprintf("https://%s:80/v1/operators", ServerHostName)
+			endpoint := fmt.Sprintf("https://%s:%s/v1/operators", ServerHostName, ServerRestPort)
 			body, err := DoGetRequest(endpoint)
 			if err != nil {
 				c.Printf("%s", err.Error())
@@ -976,7 +1078,7 @@ func OperatorChatHandler(connection *data.Connection) {
 }
 
 func OperatorJoinChat() {
-	socketUrl := fmt.Sprintf("wss://%s:443/operatorChat", ServerHostName)
+	socketUrl := fmt.Sprintf("wss://%s:%s/operatorChat", ServerHostName, ServerWSPort)
 	var err error
 	c, _, err := websocket.DefaultDialer.Dial(socketUrl,
 		http.Header{

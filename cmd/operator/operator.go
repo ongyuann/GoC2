@@ -17,6 +17,8 @@ func main() {
 	nickPtr := flag.String("nick", "", "Operator Handle")
 	serverPtr := flag.String("server", "", "Server Ip/Hostname")
 	secretPtr := flag.String("secret", "", "Server shared secret.")
+	serverRestPort := flag.String("restPort", "8000", "Server REST Port")
+	serverWSPort := flag.String("wsPort", "8443", "Server WS Port")
 	flag.Parse()
 	if *nickPtr == "" || *serverPtr == "" || *secretPtr == "" {
 		flag.PrintDefaults()
@@ -24,6 +26,8 @@ func main() {
 	}
 	operator.ServerHostName = *serverPtr
 	operator.ServerSharedSecret = *secretPtr
+	operator.ServerRestPort = *serverRestPort
+	operator.ServerWSPort = *serverWSPort
 	err := operator.InitializeOperator(*nickPtr)
 	if err != nil {
 		log.Fatal(err)
@@ -33,7 +37,7 @@ func main() {
 		RootCAs:            operator.Operator.OperatorCaCertPool,
 		Certificates:       []tls.Certificate{operator.Operator.OperatorTLSCertificate},
 	}
-	socketUrl := fmt.Sprintf("wss://%s:443/%s", operator.ServerHostName, "socketOperator")
+	socketUrl := fmt.Sprintf("wss://%s:%s/%s", operator.ServerHostName, *serverWSPort, "socketOperator")
 	c, _, err := websocket.DefaultDialer.Dial(socketUrl,
 		http.Header{
 			"nick":          []string{operator.Operator.OperatorNick},
