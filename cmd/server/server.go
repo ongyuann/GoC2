@@ -13,7 +13,7 @@ import (
 func main() {
 	// setup
 	debug := flag.Bool("debug", false, "sets log level to debug")
-	secret := flag.String("secret", "", "set the secret that is needed to acquire a client certificate.")
+	secret := flag.String("secret", "", "set the (16 Byte) secret that is needed to acquire a client certificate.")
 	flag.Parse()
 	log.SetLevelInfo()
 	if *debug {
@@ -22,6 +22,11 @@ func main() {
 	}
 	if *secret == "" {
 		log.Log.Info().Msg("Missing -secret parameter.")
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
+	if len(*secret) != 16 {
+		log.Log.Info().Msg("-secret parameter must be 16 bytes long exactly.")
 		flag.PrintDefaults()
 		os.Exit(0)
 	}

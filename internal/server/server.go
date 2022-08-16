@@ -1,6 +1,9 @@
 package server
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
@@ -35,12 +38,26 @@ func ServerHandleTaskResult(clientUUId string, message []byte) bool {
 		log.Log.Error().Msgf("Error reading task result into json %+v", err)
 		return false
 	}
+	log.Log.Debug().Msgf("Got TaskResult From %s", clientUUId)
+	// check if exists in database
+	if _, ok := db.ClientsDatabase.Database[clientUUId]; !ok {
+		log.Log.Error().Msgf("Failed to find client in client database!")
+		return false
+	}
+	// decrypt now
+	decrypted, err := DecryptClientPayload(m.MessageData, clientUUId)
+	if err != nil {
+		log.Log.Error().Msgf("Failed to decrypt client %s payload %v ", clientUUId, err)
+		return false
+	}
+	log.Log.Debug().Msgf("Successfully decrypted client %s payload", clientUUId)
 	r := &data.TaskResult{}
-	err = json.Unmarshal(m.MessageData, r)
+	err = json.Unmarshal(decrypted, r)
 	if err != nil {
 		log.Log.Error().Msgf("Error reading task result into json %+v", err)
 		return false
 	}
+	//log.Log.Debug().Msgf("%s client decrypted payload %+v", clientUUId, r)
 	if op, ok := db.OperatorsDatabase.Database[r.OperatorId]; ok {
 		log.Log.Debug().Msg("Found Operator To Relay Result To.")
 		db.OperatorsDatabase.AddOperatorTaskResult(r.OperatorId, *r)
@@ -83,6 +100,13 @@ func ServerHandleTask(message []byte) bool {
 		ok := db.ClientsDatabase.AddClientTask(t.ClientId, *t)
 		if !ok {
 			log.Log.Error().Msg("Failed to add task to client database")
+			return false
+		}
+		// encrypt task before sending.
+		encryptedData, err := EncryptMessageWithSymKey(t.ToBytes(), []byte(ServerSharedSecret))
+		data.MessageData = encryptedData
+		if err != nil {
+			log.Log.Error().Msg("Failed to encrypt task before sending to client")
 			return false
 		}
 		ok = db.ClientsDatabase.SendTask(t.ClientId, data.ToBytes())
@@ -146,6 +170,14 @@ func ServerHandleCheckIn(clientUUID string, message []byte, clientConnection *we
 	}
 	c.ClientId = clientUUID
 	c.Online = true
+	privateKey, err := GenerateRsaKeyPair()
+	if err != nil {
+		log.Log.Error().Msgf("Failed to generate RSA Key pair for client %v\n", err)
+		return nil
+	}
+	// add generated RSA keys here.
+	c.RsaPrivateKey = privateKey
+	c.RsaPublicKey = &privateKey.PublicKey
 	ok := db.ClientsDatabase.AddClient(clientUUID, *c, clientConnection)
 	if !ok {
 		log.Log.Error().Msgf("Failed to add client to database %v\n", err)
@@ -223,6 +255,53 @@ func ServerCleanClientConnections() {
 
 	}
 }
+
+func GenerateRsaKeyPair() (*rsa.PrivateKey, error) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return nil, err
+	}
+	return privateKey, nil
+}
+
+func DecryptClientPayload(data []byte, clientId string) ([]byte, error) {
+	length := len(data)
+	step := db.ClientsDatabase.Database[clientId].RsaPublicKey.Size()
+	privateKey := db.ClientsDatabase.Database[clientId].RsaPrivateKey
+	var decryptedBytes []byte
+	for start := 0; start < length; start += step {
+		finish := start + step
+		if finish > length {
+			finish = length
+		}
+		decryptedBlock, err := rsa.DecryptOAEP(sha256.New(), nil, privateKey, data[start:finish], nil)
+		if err != nil {
+			log.Log.Error().Msgf("Failed to decrypt client task result")
+			return nil, err
+		}
+		decryptedBytes = append(decryptedBytes, decryptedBlock...)
+	}
+	return decryptedBytes, nil
+}
+
+func EncryptMessageWithSymKey(data []byte, key []byte) ([]byte, error) {
+	var output []byte
+	for i := 0; i < len(data); i++ {
+		output = append(output, data[i]^key[i%len(key)])
+	}
+	return output, nil
+}
+
+/*
+
+	encryptedBlock, err := rsa.EncryptOAEP(
+		sha256.New(),
+		rand.Reader,
+		c.RsaPublicKey,
+		data[start:finish],
+		nil)
+
+*/
 
 /*
 func ServerShutDownAllConnections() {

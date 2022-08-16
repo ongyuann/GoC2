@@ -34,7 +34,6 @@ func ListProcesses() (string, error) {
 		// else do stuff with process
 		name := syscall.UTF16ToString(pe32.ExeFile[:])
 		procs = append(procs, fmt.Sprintf("%d %s", pe32.ProcessID, name))
-
 	}
 	windows.CloseHandle(hSnapshot)
 	return strings.Join(procs, "\n"), nil

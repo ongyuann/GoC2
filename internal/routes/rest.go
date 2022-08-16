@@ -59,6 +59,8 @@ func ClientsEndpoint(c *gin.Context) {
 	for _, x := range db.ClientsDatabase.Database {
 		x.Tasks = nil
 		x.Results = nil
+		//x.RsaPrivateKey = nil
+		x.RsaPublicKey = nil
 		better[x.ClientId] = x
 	}
 	c.JSON(200, better)
