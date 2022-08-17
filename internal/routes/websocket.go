@@ -45,7 +45,7 @@ func StartWebSocketListener(port string, shutdownChannel chan int) {
 	tlsConfig.BuildNameToCertificate()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/socketClient", SocketHandlerClient)
-	server := http.Server{
+	wsServer := http.Server{
 		Addr:         fmt.Sprintf(":%s", port),
 		Handler:      mux,
 		TLSConfig:    tlsConfig,
@@ -53,11 +53,18 @@ func StartWebSocketListener(port string, shutdownChannel chan int) {
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
-	go server.ListenAndServeTLS("../certs/server.cert", "../certs/server.key")
-	log.Log.Info().Msgf("Started Websocket listener on %s", port)
+	ctxShutDown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer func() {
+		cancel()
+	}()
+	go wsServer.ListenAndServeTLS("../certs/server.cert", "../certs/server.key")
+	msg := fmt.Sprintf("Started Websocket listener on %s ", port)
+	msgDown := fmt.Sprintf("Shutting down Websocket listener on %s ", port)
+	log.Log.Info().Msg(msg)
+	server.ServerBroadCastMessage(msg)
 	<-shutdownChannel
-	log.Log.Info().Msgf("Shutting down websocket listener on %s", port)
-	server.Shutdown(context.Background())
+	log.Log.Info().Msg(msgDown)
+	wsServer.Shutdown(ctxShutDown)
 	shutdownChannel <- 1
 }
 
@@ -160,8 +167,13 @@ func SocketHandlerClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	clientUUID := data.GenerateUUID()
-
 	defer conn.Close()
+	sharedSecret := r.Header.Get("shared-secret")
+	if sharedSecret != server.ServerSharedSecret {
+		log.Log.Error().Str("service", "WebsocketClientHandler").Msgf("Error closing connection invalid shared secret supplied -> %s", sharedSecret)
+		conn.Close()
+		return
+	}
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {

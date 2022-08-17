@@ -39,7 +39,7 @@ func (db *ListenerDB) DeleteListener(port string) bool {
 	if _, ok := db.Database[port]; !ok {
 		return true
 	}
-	return true
+	return false
 }
 
 func (db *ListenerDB) AddListener(label string, port string, listenType data.ListenerType) bool {

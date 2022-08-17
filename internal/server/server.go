@@ -44,6 +44,7 @@ func ServerHandleTaskResult(clientUUId string, message []byte) bool {
 		log.Log.Error().Msgf("Failed to find client in client database!")
 		return false
 	}
+	db.ClientsDatabase.ClientSetTaskComplete(clientUUId) // for http listeners
 	// decrypt now
 	decrypted, err := DecryptClientPayload(m.MessageData, clientUUId)
 	if err != nil {
@@ -67,8 +68,16 @@ func ServerHandleTaskResult(clientUUId string, message []byte) bool {
 	}
 	if _, ok := db.ClientsDatabase.Database[r.ClientId]; ok {
 		log.Log.Debug().Msg("Found Client")
+		if r.TaskId == "SleepTask" {
+			db.ClientsDatabase.SetClientAwake(r.ClientId)
+		}
+		if r.TaskId == "JitterTask" {
+			fmt.Println("JITTER TASK")
+			db.ClientsDatabase.SetClientJitter(r.ClientId, r.Result)
+		}
 		db.ClientsDatabase.AddClientTaskResult(r.ClientId, *r)
 		log.Log.Debug().Msg("Added task result to client db")
+		db.ClientsDatabase.UpdateClientLastSeen(r.ClientId)
 		// May Remove
 		chatMsg := fmt.Sprintf("[ %s ] <_%s_>: COMPLETED TASK FROM %s", time.Now().Format(time.RFC1123), r.ClientId, r.OperatorId)
 		db.OperatorsDatabase.BroadCastChatMessage([]byte(chatMsg))
@@ -93,6 +102,10 @@ func ServerHandleTask(message []byte) bool {
 	}
 	if _, ok := db.ClientsDatabase.Database[t.ClientId]; ok {
 		log.Log.Debug().Msg("Found Client")
+		if t.Command == "sleep" {
+			log.Log.Debug().Msg("Sleep command")
+			db.ClientsDatabase.SetClientSleeping(t.ClientId)
+		}
 		data := data.Message{
 			MessageType: "Task",
 			MessageData: t.ToBytes(),
@@ -103,12 +116,14 @@ func ServerHandleTask(message []byte) bool {
 			return false
 		}
 		// encrypt task before sending.
-		encryptedData, err := EncryptMessageWithSymKey(t.ToBytes(), []byte(ServerSharedSecret))
-		data.MessageData = encryptedData
-		if err != nil {
-			log.Log.Error().Msg("Failed to encrypt task before sending to client")
-			return false
-		}
+		/*
+			encryptedData, err := EncryptMessageWithSymKey(t.ToBytes(), []byte(ServerSharedSecret))
+			data.MessageData = encryptedData
+			if err != nil {
+				log.Log.Error().Msg("Failed to encrypt task before sending to client")
+				return false
+			}
+		*/
 		ok = db.ClientsDatabase.SendTask(t.ClientId, data.ToBytes())
 		if !ok {
 			log.Log.Error().Msg("Failed to send task to client")
@@ -152,6 +167,45 @@ func ServerHandleOperatorCheckIn(operatorUUID string, message []byte, conn *webs
 		MessageData: o.ToBytes(),
 	}
 	log.Log.Debug().Msgf("Checked in new operator %s", o.OperatorNick)
+	return msg
+}
+
+func ServerHandleCheckInHTTPS(clientUUID string, message []byte) *data.Message {
+	m := &data.Message{}
+	c := &data.Client{}
+	err := json.Unmarshal(message, m)
+	if err != nil {
+		log.Log.Error().Msgf("Error Handling HTTP CheckIn %v\n", err)
+		return nil
+	}
+	err = json.Unmarshal(m.MessageData, c)
+	if err != nil {
+		log.Log.Error().Msgf("Error Handling HTTP CheckIn %v\n", err)
+		return nil
+	}
+	c.ClientId = clientUUID
+	c.Online = true
+	c.ListenerType = 1
+	privateKey, err := GenerateRsaKeyPair()
+	if err != nil {
+		log.Log.Error().Msgf("Failed to generate RSA Key pair for client %v\n", err)
+		return nil
+	}
+	// add generated RSA keys here.
+	c.RsaPrivateKey = privateKey
+	c.RsaPublicKey = &privateKey.PublicKey
+	ok := db.ClientsDatabase.AddClient(clientUUID, *c, nil)
+	if !ok {
+		log.Log.Error().Msgf("Failed to add client to database %v\n", err)
+		return nil
+	}
+	chatMsg := fmt.Sprintf("[ %s ] <_%s_>: Joined the server.", time.Now().Format(time.RFC1123), clientUUID)
+	db.OperatorsDatabase.BroadCastChatMessage([]byte(chatMsg))
+	msg := &data.Message{
+		MessageType: "CheckIn",
+		MessageData: c.ToBytes(),
+	}
+	log.Log.Debug().Msgf("Checked in new client %s", c.ClientId)
 	return msg
 }
 
@@ -210,6 +264,17 @@ func ServerCleanClientConnections() {
 	var operatorsThatLeft []string
 	var clientsThatLeft []string
 	for key, client := range db.ClientsDatabase.Database {
+		if client.Sleeping {
+			continue
+		}
+		if client.ListenerType == 1 {
+			delta := time.Now().Sub(client.LastSeen)
+			if delta.Seconds() < (float64(client.Jitter) + 60*5) { // if we dont hear back for about 5 minutes its probably dead.
+				continue
+			}
+			db.ClientsDatabase.UpdateClientOnline(key, false)
+			continue
+		}
 		if !client.Online {
 			continue // if connection is closed ignore. else server crashes.
 		}
@@ -276,7 +341,7 @@ func DecryptClientPayload(data []byte, clientId string) ([]byte, error) {
 		}
 		decryptedBlock, err := rsa.DecryptOAEP(sha256.New(), nil, privateKey, data[start:finish], nil)
 		if err != nil {
-			log.Log.Error().Msgf("Failed to decrypt client task result")
+			log.Log.Error().Msgf("Failed to decrypt client task result %v", err)
 			return nil, err
 		}
 		decryptedBytes = append(decryptedBytes, decryptedBlock...)

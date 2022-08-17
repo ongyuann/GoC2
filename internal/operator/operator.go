@@ -485,6 +485,10 @@ func SendChatMessage(msg string) {
 
 func SendTask(clientId string, command string, c *ishell.Context) {
 	switch command {
+	case "sleep":
+		PrepareTaskWithOneArg(c, clientId, command, "<Sleep>: ")
+	case "jitter":
+		PrepareTaskWithOneArg(c, clientId, command, "<Jitter>: ")
 	case "exit":
 		break
 	case "die":

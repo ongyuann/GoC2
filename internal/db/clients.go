@@ -2,6 +2,8 @@ package db
 
 import (
 	"log"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,6 +58,71 @@ func (db *ClientDB) UpdateClientLastSeen(uuid string) bool {
 		client.Online = true
 		db.Database[uuid] = client
 		return true
+	}
+	return false
+}
+
+func (db *ClientDB) ClientGetAvailableTasks(uuid string) []data.Task {
+	tasks := make([]data.Task, 0)
+	db.Lock()
+	defer db.Unlock()
+	if client, ok := db.Database[uuid]; ok {
+		for x := range client.Tasks {
+			if !client.Tasks[x].Completed {
+				tasks = append(tasks, client.Tasks[x])
+			}
+		}
+	}
+	return tasks
+}
+
+func (db *ClientDB) SetClientSleeping(uuid string) bool {
+	db.Lock()
+	defer db.Unlock()
+	if client, ok := db.Database[uuid]; ok {
+		client.Sleeping = true
+		db.Database[uuid] = client
+	}
+	return true
+}
+
+func (db *ClientDB) SetClientAwake(uuid string) bool {
+	db.Lock()
+	defer db.Unlock()
+	if client, ok := db.Database[uuid]; ok {
+		client.Sleeping = false
+		db.Database[uuid] = client
+	}
+	return true
+}
+
+func (db *ClientDB) SetClientJitter(uuid string, jitter string) bool {
+	db.Lock()
+	defer db.Unlock()
+	if client, ok := db.Database[uuid]; ok {
+		j, err := strconv.Atoi(strings.Split(jitter, "\n")[0])
+		if err != nil {
+			log.Println(err)
+			return false
+		}
+		client.Jitter = j
+		db.Database[uuid] = client
+		return true
+	}
+	return false
+}
+
+func (db *ClientDB) ClientSetTaskComplete(uuid string) bool {
+	db.Lock()
+	defer db.Unlock()
+	if client, ok := db.Database[uuid]; ok {
+		for x := range client.Tasks {
+			if !client.Tasks[x].Completed {
+				client.Tasks[x].Completed = true
+				return true
+			}
+		}
+		return false
 	}
 	return false
 }
@@ -115,6 +182,10 @@ func (db *ClientDB) SendTask(uuid string, data []byte) bool {
 	db.Lock()
 	defer db.Unlock()
 	if client, ok := db.Database[uuid]; ok {
+		if client.ListenerType == 1 {
+			// client is https
+			return true
+		}
 		err := client.WSConn.WriteMessage(data)
 		if err != nil {
 			return false

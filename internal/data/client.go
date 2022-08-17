@@ -37,6 +37,9 @@ type Client struct {
 	Results              []TaskResult    `json:"results"`
 	RsaPrivateKey        *rsa.PrivateKey `json:"-"`
 	RsaPublicKey         *rsa.PublicKey  `json:"public_key"`
+	ListenerType         ListenerType    `json:"listener_type"`
+	Jitter               int             `json:"jitter"`
+	Sleeping             bool            `json:"sleeping"`
 	ClientTLSCertificate tls.Certificate `json:"-"`
 	WSConn               *Connection     `json:"-"`
 	ClientCaCertPool     *x509.CertPool  `json:"-"`
@@ -93,16 +96,19 @@ func NewClient() *Client {
 	}
 
 	return &Client{
-		ClientId:    GenerateUUID(),
-		HostName:    hostname,
-		Username:    user.Username,
-		ProcessName: process,
-		ProcessId:   os.Getpid(),
-		Online:      true,
-		Integrity:   integrity,
-		OS:          osName,
-		Arch:        arch,
-		PublicIp:    GetPublicIp(),
+		ClientId:     GenerateUUID(),
+		HostName:     hostname,
+		Username:     user.Username,
+		ProcessName:  process,
+		ProcessId:    os.Getpid(),
+		Online:       true,
+		Integrity:    integrity,
+		OS:           osName,
+		Arch:         arch,
+		Jitter:       5, // default
+		ListenerType: 0,
+		Sleeping:     false,
+		PublicIp:     GetPublicIp(),
 	}
 
 }

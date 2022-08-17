@@ -12,6 +12,7 @@ type Task struct {
 	Command    string   `json:"command"`
 	Args       []string `json:"args"`
 	File       []byte   `json:"file"`
+	Completed  bool     `json:"completed"`
 }
 
 type TaskResult struct {

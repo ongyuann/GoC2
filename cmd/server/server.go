@@ -27,11 +27,11 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
-	if len(*secret) != 16 {
+	/*if len(*secret) != 16 {
 		log.Log.Info().Msg("-secret parameter must be 16 bytes long exactly.")
 		flag.PrintDefaults()
 		os.Exit(0)
-	}
+	}*/
 	server.ServerSharedSecret = *secret
 	log.Log.Debug().Msgf("Setting Shared Secret To %s", server.ServerSharedSecret)
 	log.Log.Info().Msg("Running Certificate Authority.")
