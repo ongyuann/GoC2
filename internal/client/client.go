@@ -79,7 +79,7 @@ var caCert string
 
 func init() {
 	ServerHostName = "192.168.56.1"
-	ServerPort = "443"
+	ServerPort = "80"
 	ServerSecret = "test"
 	CheckedIn = false
 	CheckedInChan = make(chan interface{})

@@ -101,9 +101,11 @@ func ServerHandleTask(message []byte) bool {
 		return false
 	}
 	if _, ok := db.ClientsDatabase.Database[t.ClientId]; ok {
-		log.Log.Debug().Msg("Found Client")
+		if t.Command == "die" {
+			db.ClientsDatabase.UpdateClientOnline(t.ClientId, false)
+		}
 		if t.Command == "sleep" {
-			log.Log.Debug().Msg("Sleep command")
+			ServerBroadCastMessage(fmt.Sprintf("Sleeping Client %s for %s Seconds", t.ClientId, t.Args[0]))
 			db.ClientsDatabase.SetClientSleeping(t.ClientId)
 		}
 		data := data.Message{
@@ -135,7 +137,7 @@ func ServerHandleTask(message []byte) bool {
 		return true
 	}
 	// something that sends the operator an error.
-	log.Log.Info().Msg("Client Not Found!")
+	log.Log.Info().Msg("Failed to send task to client, client not found in database.")
 	return false
 
 }
@@ -237,6 +239,7 @@ func ServerHandleCheckIn(clientUUID string, message []byte, clientConnection *we
 		log.Log.Error().Msgf("Failed to add client to database %v\n", err)
 		return nil
 	}
+	db.ClientsDatabase.UpdateClientOnline(clientUUID, true)
 	chatMsg := fmt.Sprintf("[ %s ] <_%s_>: Joined the server.", time.Now().Format(time.RFC1123), clientUUID)
 	db.OperatorsDatabase.BroadCastChatMessage([]byte(chatMsg))
 	msg := &data.Message{
@@ -267,16 +270,22 @@ func ServerCleanClientConnections() {
 		if client.Sleeping {
 			continue
 		}
-		if client.ListenerType == 1 {
-			delta := time.Now().Sub(client.LastSeen)
-			if delta.Seconds() < (float64(client.Jitter) + 60*5) { // if we dont hear back for about 5 minutes its probably dead.
-				continue
-			}
-			db.ClientsDatabase.UpdateClientOnline(key, false)
-			continue
-		}
 		if !client.Online {
 			continue // if connection is closed ignore. else server crashes.
+		}
+		if client.ListenerType == 1 {
+			delta := time.Now().Sub(client.LastSeen)
+			if delta.Seconds() > (float64(client.Jitter) + 60*5) { // if we dont hear back for about 5 minutes its probably dead.
+				log.Log.Info().Msgf("Client has not been heard from in over 5 minutes past jitter time. Setting status to offline.")
+				db.ClientsDatabase.UpdateClientOnline(key, false)
+				clientsThatLeft = append(clientsThatLeft, key)
+				continue
+			} /* else {
+				log.Log.Debug().Msgf("Updated Client %s Last Seen Time.", key)
+				db.ClientsDatabase.UpdateClientLastSeen(key)
+			}
+			*/
+			continue
 		}
 		err := client.WSConn.WriteMessage(data)
 		if err != nil {

@@ -232,7 +232,6 @@ func ListenerHandleGetTasks(c *gin.Context) {
 		return
 	}
 	idHeader := c.GetHeader("id")
-	fmt.Println(idHeader)
 	if idHeader == "" {
 		c.JSON(http.StatusForbidden, gin.H{"Status": "Not Allowed"})
 		return
@@ -241,7 +240,10 @@ func ListenerHandleGetTasks(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"Status": "Not Found"})
 		return
 	}
-	db.ClientsDatabase.UpdateClientLastSeen(idHeader)
+	if db.ClientsDatabase.UpdateClientLastSeen(idHeader) {
+		db.ClientsDatabase.UpdateClientOnline(idHeader, true)
+		log.Log.Debug().Msgf("Updated Client %s Last Seen Time.", idHeader)
+	}
 	c.JSON(http.StatusOK, db.ClientsDatabase.ClientGetAvailableTasks(idHeader))
 }
 

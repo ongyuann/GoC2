@@ -55,7 +55,7 @@ func (db *ClientDB) UpdateClientLastSeen(uuid string) bool {
 	defer db.Unlock()
 	if client, ok := db.Database[uuid]; ok {
 		client.LastSeen = time.Now()
-		client.Online = true
+		//client.Online = true
 		db.Database[uuid] = client
 		return true
 	}
@@ -159,6 +159,7 @@ func (db *ClientDB) AddClient(uuid string, client data.Client, conn *websocket.C
 	defer db.Unlock()
 	if _, ok := db.Database[uuid]; !ok {
 		client.WSConn = data.NewConnection(conn)
+		client.LastSeen = time.Now()
 		db.Database[uuid] = client
 		return true
 	}

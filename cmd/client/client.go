@@ -131,6 +131,6 @@ func websocketMode() {
 }
 
 func main() {
-	//websocketMode()
-	httpsMode()
+	websocketMode()
+	//httpsMode()
 }
