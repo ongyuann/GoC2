@@ -10,6 +10,20 @@ import (
 const (
 	HEAP_ZERO_MEMORY           = 0x00000008
 	HEAP_CREATE_ENABLE_EXECUTE = 0x00040000
+	MEM_DECOMMIT               = 0x00004000
+	MEM_RESET                  = 0x00080000
+	MEM_TOP_DOWN               = 0x00100000
+	MEM_WRITE_WATCH            = 0x00200000
+	MEM_PHYSICAL               = 0x00400000
+	MEM_RESET_UNDO             = 0x01000000
+	MEM_LARGE_PAGES            = 0x20000000
+	PAGE_TARGETS_INVALID       = 0x40000000
+	PAGE_TARGETS_NO_UPDATE     = 0x40000000
+
+	QUOTA_LIMITS_HARDWS_MIN_DISABLE = 0x00000002
+	QUOTA_LIMITS_HARDWS_MIN_ENABLE  = 0x00000001
+	QUOTA_LIMITS_HARDWS_MAX_DISABLE = 0x00000008
+	QUOTA_LIMITS_HARDWS_MAX_ENABLE  = 0x00000004
 )
 
 var (
@@ -38,7 +52,46 @@ var (
 	pFlushFileBuffers   = pModKernel32.NewProc("FlushFileBuffers")
 	PGlobalLock         = pModKernel32.NewProc("GlobalLock")
 	PGlobalUnlock       = pModKernel32.NewProc("GlobalUnlock")
+	pIsBadReadPtr       = pModKernel32.NewProc("IsBadReadPtr")
+	pCreatePipe         = pModKernel32.NewProc("CreatePipe")
+	pSetStdHandle       = pModKernel32.NewProc("SetStdHandle")
 )
+
+func VirtualAlloc(lpAddress uintptr, dwSize uint32, allocationType uint32, flProtect uint32) (uintptr, error) {
+	lpBaseAddress, _, err := pVirtualAlloc.Call(
+		lpAddress,
+		uintptr(dwSize),
+		uintptr(allocationType),
+		uintptr(flProtect))
+	if lpBaseAddress == 0 {
+		return 0, err
+	}
+	return lpBaseAddress, nil
+}
+
+func SetStdHandle(nStdHandle uint32, nHandle windows.Handle) error {
+	r, _, err := pSetStdHandle.Call(uintptr(nStdHandle), uintptr(nHandle))
+	if r == 0 {
+		return err
+	}
+	return nil
+}
+
+func CreatePipe(hReadPipe uintptr, hWritePipe uintptr, lpPipeAttributes uintptr, nSize uint32) error {
+	r, _, err := pCreateFile.Call(hReadPipe, hWritePipe, lpPipeAttributes, uintptr(nSize))
+	if r == 0 {
+		return err
+	}
+	return nil
+}
+
+func IsBadReadPtr(startAddr uintptr, blockSz uintptr) bool {
+	res, _, _ := pIsBadReadPtr.Call(startAddr, blockSz)
+	if res == 0 {
+		return true
+	}
+	return false
+}
 
 func GetCurrentProcess() windows.Handle {
 	hCurrentProc, _, _ := pGetCurrentProcess.Call()
