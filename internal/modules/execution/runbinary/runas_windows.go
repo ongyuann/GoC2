@@ -30,18 +30,12 @@ func RunAsNetOnly(args []string) (string, error) {
 	if !ok {
 		return "", err
 	}
-	var duplicatedToken syscall.Handle
-	worked, err := winapi.DuplicateToken(hToken, windows.SecurityDelegation, &duplicatedToken)
+	worked, err := winapi.ImpersonateLoggedOnUser(windows.Token(hToken))
 	if !worked {
 		return "", err
 	}
-	err = windows.SetThreadToken(nil, windows.Token(duplicatedToken))
-	if err != nil {
-		return "", err
-	}
 	windows.CloseHandle(windows.Handle(hToken))
-	windows.CloseHandle(windows.Handle(duplicatedToken))
-	return fmt.Sprintf("Impersonating %s\\%s With NetOnlyFlag", domainW, userW), nil
+	return fmt.Sprintf("NETONLY Impersonating %s\\%s", domainW, userW), nil
 }
 
 func RunAs(args []string) (string, error) {
@@ -59,24 +53,10 @@ func RunAs(args []string) (string, error) {
 		return "", err
 	}
 	originalUser := windows.UTF16ToString(buffer)
-	ok, err := winapi.LogonUser(userW, domainW, passW, 9, 3, &hToken)
+	ok, err := winapi.LogonUser(userW, domainW, passW, 8, 3, &hToken)
 	if !ok {
 		return "", err
 	}
-	/*
-		var duplicatedToken syscall.Handle
-		worked, _, err := windows.DuplicateToken.Call(uintptr(hToken), uintptr(windows.SecurityImpersonation), uintptr(unsafe.Pointer(&duplicatedToken)))
-		if worked == 0 {
-			return "", err
-		}
-	*/
-	/*
-		err = windows.SetThreadToken(nil, windows.Token(duplicatedToken))
-		if err != nil {
-			return "", err
-		}
-	*/
-
 	worked, err := winapi.ImpersonateLoggedOnUser(windows.Token(hToken))
 	if !worked {
 		return "", err
@@ -92,6 +72,5 @@ func RunAs(args []string) (string, error) {
 		return "", errors.New("Failed to impersonate user.")
 	}
 	windows.CloseHandle(windows.Handle(hToken))
-	//windows.CloseHandle(windows.Handle(duplicatedToken))
 	return fmt.Sprintf("Impersonating %s", newUser), nil
 }

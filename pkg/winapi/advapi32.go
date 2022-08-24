@@ -1,6 +1,7 @@
 package winapi
 
 import (
+	"log"
 	"os"
 	"runtime"
 	"syscall"
@@ -10,23 +11,52 @@ import (
 )
 
 var (
-	pModAdvapi32             = syscall.NewLazyDLL("advapi32.dll")
-	pDuplicateToken          = pModAdvapi32.NewProc("DuplicateToken")
-	pCreateProcessWithLogonW = pModAdvapi32.NewProc("CreateProcessWithLogonW")
-	pOpenEventLogW           = pModAdvapi32.NewProc("OpenEventLogW")
-	pClearEventLogW          = pModAdvapi32.NewProc("ClearEventLogW")
-	pCloseEventLog           = pModAdvapi32.NewProc("CloseEventLog")
-	pImpersonateLoggedOnUser = pModAdvapi32.NewProc("ImpersonateLoggedOnUser")
-	pLogonUser               = pModAdvapi32.NewProc("LogonUserW")
-	pCreateProcessWithToken  = pModAdvapi32.NewProc("CreateProcessWithTokenW")
-	pGetTokenInformation     = pModAdvapi32.NewProc("GetTokenInformation")
-	pLookupAccountSid        = pModAdvapi32.NewProc("LookupAccountSidA")
-	pRegSaveKeyExW           = pModAdvapi32.NewProc("RegSaveKeyExW")
-	pRegConnectRegistry      = pModAdvapi32.NewProc("RegConnectRegistryW")
-	pCredBackupCredentials   = pModAdvapi32.NewProc("CredBackupCredentials")
+	pModAdvapi32                = syscall.NewLazyDLL("advapi32.dll")
+	pDuplicateToken             = pModAdvapi32.NewProc("DuplicateToken")
+	pCreateProcessWithLogonW    = pModAdvapi32.NewProc("CreateProcessWithLogonW")
+	pOpenEventLogW              = pModAdvapi32.NewProc("OpenEventLogW")
+	pClearEventLogW             = pModAdvapi32.NewProc("ClearEventLogW")
+	pCloseEventLog              = pModAdvapi32.NewProc("CloseEventLog")
+	pImpersonateLoggedOnUser    = pModAdvapi32.NewProc("ImpersonateLoggedOnUser")
+	pLogonUser                  = pModAdvapi32.NewProc("LogonUserW")
+	pCreateProcessWithToken     = pModAdvapi32.NewProc("CreateProcessWithTokenW")
+	pGetTokenInformation        = pModAdvapi32.NewProc("GetTokenInformation")
+	pLookupAccountSid           = pModAdvapi32.NewProc("LookupAccountSidA")
+	pRegSaveKeyExW              = pModAdvapi32.NewProc("RegSaveKeyExW")
+	pRegConnectRegistry         = pModAdvapi32.NewProc("RegConnectRegistryW")
+	pCredBackupCredentials      = pModAdvapi32.NewProc("CredBackupCredentials")
+	pLookupPrivilegeName        = pModAdvapi32.NewProc("LookupPrivilegeNameW")
+	pPrivilegeCheck             = pModAdvapi32.NewProc("PrivilegeCheck")
+	pLookupPrivilegeDisplayName = pModAdvapi32.NewProc("LookupPrivilegeDisplayNameW")
 )
 
+func LookupPrivilegeDisplayName(systemName string, lpName string) (string, error) {
+	sysnamePtr, err := windows.UTF16PtrFromString(systemName)
+	if err != nil {
+		return "", err
+	}
+	namePtr, err := windows.UTF16PtrFromString(lpName)
+	if err != nil {
+		return "", err
+	}
+	var nameSize uint32
+	var languageId uint32
+	_, _, err = pLookupPrivilegeDisplayName.Call(uintptr(unsafe.Pointer(sysnamePtr)), uintptr(unsafe.Pointer(namePtr)), uintptr(0), uintptr(unsafe.Pointer(&nameSize)), uintptr(unsafe.Pointer(&languageId)))
+	if nameSize == 0 {
+		log.Println(err)
+		return "", err
+	}
+	nameBuffer := make([]uint16, nameSize)
+	res, _, err := pLookupPrivilegeDisplayName.Call(uintptr(unsafe.Pointer(sysnamePtr)), uintptr(unsafe.Pointer(namePtr)), uintptr(unsafe.Pointer(&nameBuffer[0])), uintptr(unsafe.Pointer(&nameSize)), uintptr(unsafe.Pointer(&languageId)))
+	if res == 0 {
+		log.Println(err)
+		return "", err
+	}
+	return windows.UTF16PtrToString(&nameBuffer[0]), nil
+}
+
 const (
+	PRIVILEGE_SET_ALL_NECESSARY = 1
 	// Use only network credentials for login
 	LOGON_NETCREDENTIALS_ONLY uint32 = 0x00000002
 	// The new process does not inherit the error mode of the calling process.
@@ -230,5 +260,49 @@ func GetTokenInformation(hToken syscall.Handle, tokenInformationClass uint32, to
 		return false, err
 	}
 	return true, nil
+}
+*/
+func LookupPrivilegeNameW(systemName string, luid *windows.LUID, buffer *uint16, size *uint32) error {
+	name, err := syscall.UTF16PtrFromString(systemName)
+	if err != nil {
+		return err
+	}
+	result, _, err := pLookupPrivilegeName.Call(uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(luid)), uintptr(unsafe.Pointer(buffer)), uintptr(unsafe.Pointer(size)), 0, 0)
+	if result == 0 {
+		return err
+	}
+	return nil
+}
+
+type PrivilegeSet struct {
+	PrivilegeCount uint32
+	Control        uint32
+	Privilege      [1]windows.LUIDAndAttributes
+}
+
+func PrivilegeCheck(clientToken windows.Token, pSet *PrivilegeSet, pfResult *bool) error {
+	res, _, err := pPrivilegeCheck.Call(uintptr(clientToken), uintptr(unsafe.Pointer(pSet)), uintptr(unsafe.Pointer(pfResult)))
+	if res == 0 {
+		return err
+	}
+	return nil
+}
+
+/*
+func lookupPrivilegeName(systemName string, luid *uint64, buffer *uint16, size *uint32) (err error) {
+	var _p0 *uint16
+	_p0, err = syscall.UTF16PtrFromString(systemName)
+	if err != nil {
+		return
+	}
+	return _lookupPrivilegeName(_p0, luid, buffer, size)
+}
+
+func _lookupPrivilegeName(systemName *uint16, luid *uint64, buffer *uint16, size *uint32) (err error) {
+	r1, _, e1 := syscall.Syscall6(procLookupPrivilegeNameW.Addr(), 4, uintptr(unsafe.Pointer(systemName)), uintptr(unsafe.Pointer(luid)), uintptr(unsafe.Pointer(buffer)), uintptr(unsafe.Pointer(size)), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
 }
 */

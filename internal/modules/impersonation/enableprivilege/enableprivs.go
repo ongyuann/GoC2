@@ -8,3 +8,7 @@ import "fmt"
 func EnablePriv(priv string) (string, error) {
 	return fmt.Sprintf("Not Available On this platform."), nil
 }
+
+func ShowPrivileges() (string, error) {
+	return fmt.Sprintf("Not Available On this platform."), nil
+}

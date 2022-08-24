@@ -35,6 +35,7 @@ package modules
 */
 var ExecutionModulesList = [...]string{
 	"exit",
+	"load-custom-pe",
 	"memfd_create",
 	"self-inject",
 	"raw-self-inject",
@@ -137,10 +138,14 @@ var CredentialsModulesList = [...]string{
 
 var ImpersonationModulesList = [...]string{
 	"exit",
+	"show-priv",
+	"enable-priv",
+	"disable-priv",
 	"enum-tokens",
 	"get-system",
-	"enable-priv",
 	"steal-token",
+	"logon-user",
+	"logon-user-netonly",
 	"rev2self",
 }
 

