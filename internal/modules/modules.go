@@ -35,6 +35,7 @@ package modules
 */
 var ExecutionModulesList = [...]string{
 	"exit",
+	"enum-rwx-memory",
 	"load-custom-pe",
 	"memfd_create",
 	"self-inject",
