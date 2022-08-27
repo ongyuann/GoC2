@@ -37,9 +37,12 @@ var (
 	pGetExitCodeThread  = pModKernel32.NewProc("GetExitCodeThread")
 	pVirtualProtect     = pModKernel32.NewProc("VirtualProtect")
 	pVirtualProtectEx   = pModKernel32.NewProc("VirtualProtectEx")
+	pVirtualFreeEx      = pModKernel32.NewProc("VirtualFreeEx")
+	pVirtualFree        = pModKernel32.NewProc("VirtualFree")
 	pReadFile           = pModKernel32.NewProc("ReadFile")
 	pHeapAlloc          = pModKernel32.NewProc("HeapAlloc")
 	pHeapFree           = pModKernel32.NewProc("HeapFree")
+	pHeapDestroy        = pModKernel32.NewProc("HeapDestroy")
 	pVirtualAlloc       = pModKernel32.NewProc("VirtualAlloc")
 	pVirtualAllocEx     = pModKernel32.NewProc("VirtualAllocEx")
 	pWriteProcessMemory = pModKernel32.NewProc("WriteProcessMemory")
@@ -56,6 +59,38 @@ var (
 	pCreatePipe         = pModKernel32.NewProc("CreatePipe")
 	pSetStdHandle       = pModKernel32.NewProc("SetStdHandle")
 )
+
+func HeapDestroy(hHeap uintptr) error {
+	res, _, err := pHeapDestroy.Call(hHeap)
+	if res == 0 {
+		return err
+	}
+	return nil
+}
+
+func HeapFree(hHeap uintptr, flags uint32, lpMem uintptr) error {
+	res, _, err := pHeapFree.Call(hHeap, uintptr(flags), lpMem)
+	if res == 0 {
+		return err
+	}
+	return nil
+}
+
+func VirtualFree(address uintptr, dwSize uint32, dwFreeType uint32) (bool, error) {
+	res, _, err := pVirtualFree.Call(address, uintptr(dwSize), uintptr(dwFreeType))
+	if res == 0 {
+		return false, err
+	}
+	return true, nil
+}
+
+func VirtualFreeEx(hProcess windows.Handle, address uintptr, dwSize uint32, dwFreeType uint32) (bool, error) {
+	res, _, err := pVirtualFreeEx.Call(uintptr(hProcess), address, uintptr(dwSize), uintptr(dwFreeType))
+	if res == 0 {
+		return false, err
+	}
+	return true, nil
+}
 
 func VirtualAlloc(lpAddress uintptr, dwSize uint32, allocationType uint32, flProtect uint32) (uintptr, error) {
 	lpBaseAddress, _, err := pVirtualAlloc.Call(
@@ -177,12 +212,12 @@ func VirtualProtectEx(hProcess syscall.Handle, lpAddress uintptr, dwSize uint32,
 	return true, nil
 }
 
-func HeapCreate(flOptions uint32, dwInitialSz uint32, dwMaximumSz uint32) (syscall.Handle, error) {
+func HeapCreate(flOptions uint32, dwInitialSz uint32, dwMaximumSz uint32) (uintptr, error) {
 	heap, _, err := pHeapCreate.Call(uintptr(flOptions), uintptr(dwInitialSz), 0)
 	if heap == 0 {
 		return 0, err
 	}
-	return syscall.Handle(heap), nil
+	return heap, nil
 }
 
 func HeapAlloc(hHeap syscall.Handle, dwFlags uint32, dwBytes uint32) (uintptr, error) {
