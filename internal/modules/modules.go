@@ -36,6 +36,7 @@ package modules
 var ExecutionModulesList = [...]string{
 	"exit",
 	"enum-rwx-memory",
+	"remote-inject-stealth",
 	"load-custom-pe",
 	"memfd_create",
 	"self-inject",

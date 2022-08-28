@@ -47,7 +47,14 @@ func EnumModules(pid uint32) (string, error) {
 			for i := 0; uint32(i) < needed/8; i++ {
 				name := make([]uint16, 1024)
 				windows.GetModuleFileNameEx(hProc, windows.Handle(procHandles[i]), &name[0], 260) // sizof WCHAR[MAX_PATH] / sizeof(WCHAR)
-				results += fmt.Sprintf("%s\n", windows.UTF16PtrToString(&name[0]))
+				mInfo := windows.ModuleInfo{}
+				moduleName := windows.UTF16PtrToString(&name[0])
+				err = windows.GetModuleInformation(hProc, windows.Handle(procHandles[i]), &mInfo, uint32(unsafe.Sizeof(mInfo)))
+				if err != nil {
+					results += fmt.Sprintf("%s 0x???????????\n", moduleName)
+					continue
+				}
+				results += fmt.Sprintf("%s %p\n", moduleName, unsafe.Pointer(mInfo.BaseOfDll))
 			}
 		}
 	}

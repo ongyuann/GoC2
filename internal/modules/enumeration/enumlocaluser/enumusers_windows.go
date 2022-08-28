@@ -4,7 +4,6 @@
 package enumlocaluser
 
 import (
-	"errors"
 	"unsafe"
 
 	"github.com/latortuga71/GoC2/pkg/winapi"
@@ -37,15 +36,17 @@ func EnumGroupsFromUser(username string) (string, error) {
 	results := ""
 	var count uint32
 	var entries uint32
-	const maxgroupsmembers = 20
-	members := &[maxgroupsmembers]LocalGroup0{}
-	res, err := winapi.NetUserGetLocalGroups("", username, 0, 0, uintptr(unsafe.Pointer(&members)), winapi.MAX_PREFFERED_LENGTH, &count, &entries)
+	const maxgroupsmembers = 25
+	buffer := &[maxgroupsmembers]LocalGroup0{}
+	res, err := winapi.NetUserGetLocalGroups("", username, 0, 0, uintptr(unsafe.Pointer(&buffer)), winapi.MAX_PREFFERED_LENGTH, &count, &entries)
 	if !res {
+		winapi.NetApiBufferFree(uintptr(unsafe.Pointer(buffer)))
 		return "", err
 	}
 	for x := 0; x < int(count); x++ {
-		results += "* " + windows.UTF16PtrToString(members[x].name) + "\n"
+		results += "* " + windows.UTF16PtrToString(buffer[x].name) + "\n"
 	}
+	winapi.NetApiBufferFree(uintptr(unsafe.Pointer(buffer)))
 	return results, nil
 }
 
@@ -55,46 +56,35 @@ func EnumGroups() (string, error) {
 	const maxgroups = 50
 	var count uint32
 	var resumeHandle *uint32
-	const maxgroupsmembers = 20
-	groups := &[maxgroups]LocalGroup0{}
+	const maxgroupsmembers = 50
+	buffer := &[maxgroups]LocalGroup0{}
 	var entries uint32
-	res, err := winapi.NetLocalGroupEnum("", 0, uintptr(unsafe.Pointer(&groups)), winapi.MAX_PREFFERED_LENGTH, &count, &entries, &resumeHandle)
+	res, err := winapi.NetLocalGroupEnum("", 0, uintptr(unsafe.Pointer(&buffer)), winapi.MAX_PREFFERED_LENGTH, &count, &entries, &resumeHandle)
 	if !res {
-		er := windows.NetApiBufferFree((*byte)(unsafe.Pointer(groups)))
-		if er != nil {
-			return "", er
-		}
+		winapi.NetApiBufferFree(uintptr(unsafe.Pointer(buffer)))
 		return "", err
 	}
 	for x := 0; x < int(count); x++ {
-		results += "- " + windows.UTF16PtrToString(groups[x].name)
+		results += "- " + windows.UTF16PtrToString(buffer[x].name)
 		results += "\n"
 	}
-	windows.NetApiBufferFree((*byte)(unsafe.Pointer(groups)))
+	winapi.NetApiBufferFree(uintptr(unsafe.Pointer(buffer)))
 	return results, nil
 }
 
 func EnumUsers() (string, error) {
 	// get up to 50 usernames
 	results := "--- Users --- \n"
-	const maxusers = 50
-	test := &[maxusers]windows.UserInfo10{}
+	buffer := &[50]windows.UserInfo10{}
 	var resumeHandle *uint32
 	var count uint32
 	var entries uint32
-	res, err := winapi.NetUserEnum("", 10, 0, uintptr(unsafe.Pointer(&test)), winapi.MAX_PREFFERED_LENGTH, &count, &entries, &resumeHandle)
+	res, err := winapi.NetUserEnum("", 10, 0, uintptr(unsafe.Pointer(&buffer)), winapi.MAX_PREFFERED_LENGTH, &count, &entries, &resumeHandle)
 	if !res {
-		er := windows.NetApiBufferFree((*byte)(unsafe.Pointer(test)))
-		if er != nil {
-			return "", er
-		}
 		return "", err
 	}
-	if maxusers < count {
-		return "", errors.New("more than 50 local users.")
-	}
 	for x := 0; x < int(count); x++ {
-		username := windows.UTF16PtrToString(test[x].Name)
+		username := windows.UTF16PtrToString(buffer[x].Name)
 		results += "- " + username
 		results += "\n"
 		groups, _ := EnumGroupsFromUser(username)
@@ -102,6 +92,6 @@ func EnumUsers() (string, error) {
 		results += "\n"
 	}
 	// free buffer
-	windows.NetApiBufferFree((*byte)(unsafe.Pointer(test)))
+	winapi.NetApiBufferFree(uintptr(unsafe.Pointer(buffer)))
 	return results, nil
 }

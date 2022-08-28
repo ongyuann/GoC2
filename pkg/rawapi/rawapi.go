@@ -15,6 +15,7 @@ var (
 	ntProtectVirtualMemoryId, _  = bpGlobal.GetSysID("NtProtectVirtualMemory")
 	ntCreateThreadExId, _        = bpGlobal.GetSysID("NtCreateThreadEx")
 	ntReadVirtualMemory, _       = bpGlobal.GetSysID("NtReadVirtualMemory")
+	//ntOpenProcess, _             = bpGlobal.GetSysID("NtOpenProcess")
 )
 
 const (

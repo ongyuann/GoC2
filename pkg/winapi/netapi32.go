@@ -16,7 +16,25 @@ var (
 	pNetLocalGroupGetMembers = pModNetApi32.NewProc("NetLocalGroupGetMembers")
 	pNetGroupGetUsers        = pModNetApi32.NewProc("NetGroupGetUsers")
 	pNetUserGetLocalGroups   = pModNetApi32.NewProc("NetUserGetLocalGroups")
+	pNetApiBufferAllocate    = pModNetApi32.NewProc("NetApiBufferAllocate")
+	pNetApiBufferFree        = pModNetApi32.NewProc("NetApiBufferFree")
 )
+
+func NetApiBufferFree(buffer uintptr) bool {
+	res, _, _ := pNetApiBufferFree.Call(buffer)
+	if res != 0 {
+		return false
+	}
+	return true
+}
+
+func NetApiBufferAllocate(size uint32, buffer uintptr) (uintptr, error) {
+	_, _, err := pNetApiBufferAllocate.Call(uintptr(size), buffer)
+	if buffer == 0 {
+		return 0, err
+	}
+	return 1, nil
+}
 
 func NetUserGetLocalGroups(server string, user string, level uint32, flags uint32, bufPtr uintptr, maxLen int32, entriesRead *uint32, totalEntries *uint32) (bool, error) {
 	serverNamePtr, err := syscall.UTF16PtrFromString(server)
