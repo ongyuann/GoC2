@@ -466,7 +466,7 @@ func RemoveDOSHeader(baseAddress uintptr) {
 	//http://bytepointer.com/articles/the_microsoft_rich_header.htm
 	//still shows the sections etc.
 	var x uintptr
-	for ; x < 256; x++ {
+	for ; x < 500; x++ {
 		*(*byte)(unsafe.Pointer(baseAddress)) = 0
 		baseAddress += 1
 	}
@@ -537,9 +537,10 @@ func (r *RawPe) LoadPEFromMemory() error {
 		return err
 	}
 	// remove dos headers (OPTIONAL)
-	if r.removeHeader {
+	/*if r.removeHeader {
 		RemoveDOSHeader(baseAddressOfMemoryAlloc)
-	}
+	}*/
+	RemoveDOSHeader(baseAddressOfMemoryAlloc)
 	//ExecuteTLSCallbacks TODO
 	entryPointPtr := unsafe.Pointer(uintptr(r.peHeaders.AddressOfEntryPoint) + baseAddressOfMemoryAlloc)
 	//runtime.LockOSThread()
@@ -558,7 +559,7 @@ func (r *RawPe) LoadPEFromMemory() error {
 		if err != nil {
 			return err
 		}
-		windows.WaitForSingleObject(windows.Handle(hThread), 10000)
+		windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
 		break
 	default:
 		return errors.New("Provided Invalid PE Type")
@@ -568,7 +569,7 @@ func (r *RawPe) LoadPEFromMemory() error {
 }
 
 func (r *RawPe) FreePeFromMemory() error {
-	err := windows.VirtualFree(uintptr(r.peHeaders.ImageBase), uintptr(r.alignedImageSize), winapi.MEM_DECOMMIT)
+	err := windows.VirtualFree(uintptr(r.peHeaders.ImageBase), 0, winapi.MEM_RELEASE)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to free PE memory allocation %v", err))
 	}
@@ -578,7 +579,7 @@ func (r *RawPe) FreePeFromMemory() error {
 func (r *RawPe) FreePeDllFromMemory() error {
 	// calling dll detach.
 	syscall.Syscall(r.peEntry, 3, r.allocatedMemoryBase, 0, 0)
-	err := windows.VirtualFree(uintptr(r.peHeaders.ImageBase), uintptr(r.alignedImageSize), winapi.MEM_DECOMMIT)
+	err := windows.VirtualFree(uintptr(r.peHeaders.ImageBase), 0, winapi.MEM_RELEASE)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to free PE memory allocation %v", err))
 	}
