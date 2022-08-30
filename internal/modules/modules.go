@@ -35,6 +35,9 @@ package modules
 */
 var ExecutionModulesList = [...]string{
 	"exit",
+	"load-library",
+	"free-library",
+	"module-stomp",
 	"enum-rwx-memory",
 	"remote-inject-stealth",
 	"load-custom-pe",
@@ -56,6 +59,7 @@ var EvasionModulesList = [...]string{
 	"patch-etw",
 	"disable-sysmon",
 	"unhook-ntdll",
+	"peruns-fart",
 	"delete-event-log",
 }
 

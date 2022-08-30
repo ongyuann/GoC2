@@ -673,6 +673,15 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskSimple(c, clientId, command)
 	case "remote-inject-stealth":
 		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <Pid> <AddressToInject>: ")
+	case "peruns-fart":
+		PrepareTaskSimple(c, clientId, command)
+	case "load-library":
+		PrepareTaskWithOneArg(c, clientId, command, "<Dll to load>: ")
+	case "free-library":
+		PrepareTaskWithOneArg(c, clientId, command, "<dll to free>: ")
+	case "module-stomp":
+		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <ModuleAddress>: ")
+
 	default:
 		c.Println("Task not found.")
 	}

