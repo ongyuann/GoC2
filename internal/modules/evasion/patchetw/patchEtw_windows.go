@@ -19,11 +19,11 @@ func PatchEtw() (string, error) {
 	patch[5] = 0xC3
 	patchLen := len(patch)
 	var oldProtect uint32
-	lib, err := windows.LoadLibrary("ntdll.dll")
+	lib, err := winapi.GetModuleHandle("ntdll.dll")
 	if err != nil {
 		return "", err
 	}
-	addy, err := windows.GetProcAddress(lib, "EtwEventWrite")
+	addy, err := windows.GetProcAddress(windows.Handle(lib), "EtwEventWrite")
 	if err != nil {
 		return "", err
 	}

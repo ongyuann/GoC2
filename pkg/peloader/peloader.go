@@ -931,3 +931,17 @@ type DataDirectory struct {
 	VirtualAddress uint32 // The RVA of the data structure.
 	Size           uint32 // The size in bytes of the data structure refered to.
 }
+
+type ImageExportDirectory struct {
+	Characteristics       uint32 // always 0
+	TimeDateStamp         uint32 // create file time
+	MajorVersion          uint16 // always 0
+	MinorVersion          uint16 // always 0
+	Name                  uint32 // pointer of dll name ascii string rva
+	Base                  uint32 // number of function
+	NumberOfFunctions     uint32 // function total
+	NumberOfNames         uint32 //
+	AddressOfFunctions    uint32 // RVA from base of image
+	AddressOfNames        uint32 // RVA from base of image
+	AddressOfNameOrdinals uint32 // RVA from base of image
+}

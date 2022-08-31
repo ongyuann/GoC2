@@ -26,5 +26,7 @@ func RunBinary(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	windows.CloseHandle(pi.Thread)
+	windows.CloseHandle(pi.Process)
 	return fmt.Sprintf("Started Process Id %d", pi.ProcessId), nil
 }

@@ -84,6 +84,7 @@ func EnumMemory() (string, error) {
 			var read uintptr
 			err = windows.ReadProcessMemory(hProcess, mbi.BaseAddress, &buffer[0], mbi.RegionSize, &read)
 			if err != nil {
+				buffer = nil
 				continue
 			}
 			results += fmt.Sprintf("\tRWX: 0x%p Region Sz: %d\n", unsafe.Pointer(mbi.BaseAddress), mbi.RegionSize)

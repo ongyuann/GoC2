@@ -15,6 +15,46 @@ var (
 	pEnumProcessModules       = pPsapi.NewProc("EnumProcessModules")
 )
 
+func GetModuleList(pid uint32) ([]string, error) {
+	mod := make([]string, 0)
+	hProc, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION|windows.PROCESS_VM_READ, false, pid)
+	if err != nil {
+		return nil, err
+	}
+	var n uint32
+	var needed uint32
+	ret, _, err := pEnumProcessModules.Call(
+		uintptr(hProc),
+		0,
+		uintptr(n),
+		uintptr(unsafe.Pointer(&needed)))
+	if ret == 0 {
+		return nil, err
+	}
+	if int(ret) == 1 && needed > 0 {
+		procHandles := make([]syscall.Handle, needed)
+		procHandlesPtr := unsafe.Pointer(&procHandles[0])
+		n = needed
+		ret2, _, err := pEnumProcessModules.Call(
+			uintptr(hProc),
+			uintptr(procHandlesPtr),
+			uintptr(n),
+			uintptr(unsafe.Pointer(&needed)))
+		if ret2 == 0 {
+			return nil, err
+		}
+		if int(ret2) == 1 {
+			for i := 0; uint32(i) < needed/8; i++ {
+				name := make([]uint16, 1024)
+				windows.GetModuleFileNameEx(hProc, windows.Handle(procHandles[i]), &name[0], 260) // sizof WCHAR[MAX_PATH] / sizeof(WCHAR)
+				moduleName := windows.UTF16PtrToString(&name[0])
+				mod = append(mod, moduleName)
+			}
+		}
+	}
+	return mod, nil
+}
+
 func EnumModules(pid uint32) (string, error) {
 	results := "Loaded Modules \n"
 	hProc, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION|windows.PROCESS_VM_READ, false, pid)

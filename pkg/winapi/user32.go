@@ -3,6 +3,8 @@ package winapi
 import (
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 var (
@@ -257,8 +259,12 @@ func PostQuitMessage(exitCode int32) {
 	pPostQuitMessage.Call(uintptr(exitCode))
 }
 
-func GetModuleHandle() (syscall.Handle, error) {
-	ret, _, err := pGetModuleHandleW.Call(uintptr(0))
+func GetModuleHandle(module string) (syscall.Handle, error) {
+	ptr, err := windows.UTF16PtrFromString(module)
+	if err != nil {
+		return 0, err
+	}
+	ret, _, err := pGetModuleHandleW.Call(uintptr(unsafe.Pointer(ptr)))
 	if ret == 0 {
 		return 0, err
 	}

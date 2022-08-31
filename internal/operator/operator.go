@@ -681,7 +681,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithOneArg(c, clientId, command, "<dll to free>: ")
 	case "module-stomp":
 		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <ModuleAddress>: ")
-
+	case "hook-check":
+		PrepareTaskSimple(c, clientId, command)
 	default:
 		c.Println("Task not found.")
 	}

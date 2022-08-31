@@ -121,6 +121,7 @@ var PersistenceModulesList = [...]string{
 
 var EnumerationModulesList = [...]string{
 	"exit",
+	"hook-check",
 	"enum-modules",
 	"enum-drivers",
 	"env",

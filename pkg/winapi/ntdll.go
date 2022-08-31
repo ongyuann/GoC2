@@ -7,9 +7,10 @@ import (
 )
 
 var (
-	pModNtdll               = syscall.NewLazyDLL("ntdll.dll")
-	pRtlCopyMemory          = pModNtdll.NewProc("RtlCopyMemory")
-	pNtProtectVirtualMemory = pModNtdll.NewProc("NtProtectVirtualMemory")
+	PModNtdll               = syscall.NewLazyDLL("ntdll.dll")
+	pRtlCopyMemory          = PModNtdll.NewProc("RtlCopyMemory")
+	pNtProtectVirtualMemory = PModNtdll.NewProc("NtProtectVirtualMemory")
+	PNtCreateThread         = PModNtdll.NewProc("NtCreateThread")
 )
 
 func NtProtectVirtualMemory(hProcess uintptr, baseAddr uintptr, bytesToProtect *uintptr, newProt uint32, oldProt *uint32) error {

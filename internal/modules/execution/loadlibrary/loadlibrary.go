@@ -23,19 +23,18 @@ func LoadDll(name string) (string, error) {
 }
 
 func FreeDll(name string) (string, error) {
-	/*
-		h, err := windows.GetModuleHandleEx()
-		if err != nil {
-			return "", err
-		}
-		err = windows.FreeLibrary(h)
-		if err != nil {
-			return "", err
-		}
-		err = windows.FreeLibrary(h)
-		if err != nil {
-			return "", err
-		}
-	*/
+	p, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		return "", err
+	}
+	var handle windows.Handle
+	err = windows.GetModuleHandleEx(0x00000002, p, &handle)
+	if err != nil {
+		return "", err
+	}
+	err = windows.FreeLibrary(handle)
+	if err != nil {
+		return "", err
+	}
 	return fmt.Sprintf("[+] Freed dll"), nil
 }

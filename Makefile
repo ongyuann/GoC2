@@ -36,7 +36,7 @@ client_windows_debug:
 	@echo "and modify ServerSecret and ServerHostName Before Building"
 	@echo "press enter once you made that change to start building..."
 	@read NULL
-	GOOS=windows go build -tags windows -o bin/client.exe cmd/client/client.go
+	GOOS=windows go build -ldflags "-s -w" -tags windows -o bin/client.exe cmd/client/client.go
 
 client_windows:
 	@echo  - README -

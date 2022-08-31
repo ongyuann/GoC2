@@ -58,7 +58,16 @@ var (
 	pIsBadReadPtr       = pModKernel32.NewProc("IsBadReadPtr")
 	pCreatePipe         = pModKernel32.NewProc("CreatePipe")
 	pSetStdHandle       = pModKernel32.NewProc("SetStdHandle")
+	pGetProcAddress     = pModKernel32.NewProc("GetProcAddress")
 )
+
+func GetProcAddress(hModule uintptr, lpProcName *uint16) (uintptr, error) {
+	res, _, err := pGetProcAddress.Call(hModule, uintptr(unsafe.Pointer(lpProcName)))
+	if res == 0 {
+		return 0, err
+	}
+	return res, nil
+}
 
 func HeapDestroy(hHeap uintptr) error {
 	res, _, err := pHeapDestroy.Call(hHeap)

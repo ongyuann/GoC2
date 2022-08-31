@@ -96,7 +96,7 @@ var WindowHandle syscall.Handle = 0
 
 func StartClipboardMonitor() {
 	className := "clipboardListener"
-	instance, err := winapi.GetModuleHandle()
+	instance, err := winapi.GetModuleHandle("")
 	if err != nil {
 		log.Println(err)
 		return
