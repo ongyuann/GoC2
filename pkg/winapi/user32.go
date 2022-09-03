@@ -260,6 +260,13 @@ func PostQuitMessage(exitCode int32) {
 }
 
 func GetModuleHandle(module string) (syscall.Handle, error) {
+	if module == "" {
+		ret, _, err := pGetModuleHandleW.Call(0)
+		if ret == 0 {
+			return 0, err
+		}
+		return syscall.Handle(ret), nil
+	}
 	ptr, err := windows.UTF16PtrFromString(module)
 	if err != nil {
 		return 0, err
