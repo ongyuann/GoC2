@@ -122,7 +122,7 @@ func SetStdHandle(nStdHandle uint32, nHandle windows.Handle) error {
 }
 
 func CreatePipe(hReadPipe uintptr, hWritePipe uintptr, lpPipeAttributes uintptr, nSize uint32) error {
-	r, _, err := pCreateFile.Call(hReadPipe, hWritePipe, lpPipeAttributes, uintptr(nSize))
+	r, _, err := pCreateFile.Call(uintptr(unsafe.Pointer(&hReadPipe)), uintptr(unsafe.Pointer(&hWritePipe)), lpPipeAttributes, uintptr(nSize))
 	if r == 0 {
 		return err
 	}
