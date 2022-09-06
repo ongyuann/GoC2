@@ -59,7 +59,29 @@ var (
 	pCreatePipe         = pModKernel32.NewProc("CreatePipe")
 	pSetStdHandle       = pModKernel32.NewProc("SetStdHandle")
 	pGetProcAddress     = pModKernel32.NewProc("GetProcAddress")
+	pCreateEventW       = pModKernel32.NewProc("CreateEventW")
+	pSetEvent           = pModKernel32.NewProc("SetEvent")
 )
+
+func SetEvent(handle uintptr) error {
+	res, _, err := pSetEvent.Call(handle)
+	if res == 0 {
+		return err
+	}
+	return nil
+}
+
+func CreateEventW(lpSecAttr *windows.SecurityAttributes, bManualReset uint32, bInitialState uint32, name string) (uintptr, error) {
+	n, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		return 0, err
+	}
+	res, _, err := pCreateEventW.Call(uintptr(unsafe.Pointer(lpSecAttr)), uintptr(bManualReset), uintptr(bInitialState), uintptr(unsafe.Pointer(n)))
+	if res == 0 {
+		return 0, err
+	}
+	return res, nil
+}
 
 func GetProcAddress(hModule uintptr, lpProcName *uint16) (uintptr, error) {
 	res, _, err := pGetProcAddress.Call(hModule, uintptr(unsafe.Pointer(lpProcName)))

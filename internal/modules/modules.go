@@ -74,6 +74,7 @@ var LateralMovementModulesList = [...]string{
 	"create-scheduled-task",
 	"execute-scheduled-task",
 	"delete-scheduled-task",
+	"winrm-exec",
 	"wmi-exec",
 	"smb-exec",
 	"ps-exec",
@@ -128,6 +129,7 @@ var EnumerationModulesList = [...]string{
 	"port-scan",
 	"subnet-scan",
 	"ifconfig",
+	"list-pipes",
 	"list-services",
 	"list-ports",
 	"list-shares",
@@ -159,7 +161,7 @@ var ImpersonationModulesList = [...]string{
 }
 
 var BasicModulesList = [...]string{
-	"exit", "sleep", "jitter", "pwd", "cd", "rm", "cp", "mv", "ls", "cat", "touch", "ps", "whoami", "mkdir", "rmdir", "killproc", "die", "shell", "download", "remote-download", "upload",
+	"exit", "sleep", "jitter", "pwd", "cd", "rm", "cp", "mv", "ls", "cat", "touch", "ps", "whoami", "mkdir", "rmdir", "killproc", "die", "shell", "download", "remote-download", "upload", "nslookup", "reverse-lookup",
 	"enumeration",
 	"impersonation",
 	"persistence",

