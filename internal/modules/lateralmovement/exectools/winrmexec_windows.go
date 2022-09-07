@@ -2,7 +2,6 @@ package exectools
 
 import (
 	"fmt"
-	"log"
 	"time"
 	"unsafe"
 
@@ -33,8 +32,8 @@ func ReadBuffer(start *byte, length uint32) []byte {
 }
 
 func RecvCallback(operationContext uintptr, flags uint32, err *winapi.WSMAN_ERROR, shell winapi.WSMAN_SHELL_HANDLE, commandHandle winapi.WSMAN_COMMAND_HANDLE, operationHandle winapi.WSMAN_OPERATION_HANDLE, data *winapi.WSMAN_RECEIVE_DATA_RESULT) uintptr {
-	fmt.Println("recv callback")
-	fmt.Println("recv event", hReceiveEvent)
+	//fmt.Println("recv callback")
+	//fmt.Println("recv event", hReceiveEvent)
 	var e error
 	if err != nil && err.Code != 0 {
 		errorStr := windows.UTF16PtrToString(err.ErrorDetail)
@@ -53,15 +52,15 @@ func RecvCallback(operationContext uintptr, flags uint32, err *winapi.WSMAN_ERRO
 			if e != nil {
 				results += fmt.Sprintf("Shell Callback Error -> %s\n", e)
 			}
-			fmt.Println("recv event set")
+			//fmt.Println("recv event set")
 		}
 	}
 	return 0
 }
 
 func ShellCallback(operationContext uintptr, flags uint32, err *winapi.WSMAN_ERROR, shell winapi.WSMAN_SHELL_HANDLE, commandHandle winapi.WSMAN_COMMAND_HANDLE, operationHandle winapi.WSMAN_OPERATION_HANDLE, data *winapi.WSMAN_RECEIVE_DATA_RESULT) uintptr {
-	fmt.Println("shell callback")
-	fmt.Println("shell event", hEvent)
+	//fmt.Println("shell callback")
+	//fmt.Println("shell event", hEvent)
 	if err.Code != 0 {
 		errorStr := windows.UTF16PtrToString(err.ErrorDetail)
 		if errorStr != `The WinRM Shell client cannot process the request. The shell handle passed to the WSMan Shell function is not valid. The shell handle is valid only when WSManCreateShell function completes successfully. Change the request including a valid shell handle and try again.` {
@@ -72,35 +71,34 @@ func ShellCallback(operationContext uintptr, flags uint32, err *winapi.WSMAN_ERR
 	if e != nil {
 		results += fmt.Sprintf("Shell Callback Error -> %s\n", e)
 	}
-	fmt.Println("shell event set")
+	//fmt.Println("shell event set")
 	return 0
 }
 
 func WinRmExec(args []string) (string, error) {
-	log.Println(args)
+	/*log.Println(args)
 	results, err := WinRmExecuteCommand("HACKERLAB", "turtleadmin", "dawoof7123!!!", "dc01", "5985", "hostname")
 	if err != nil {
 		return "", fmt.Errorf("%s %s", results, err)
 	}
 	return results, nil
-	/*
-		// domain user pass host port command ssl
-		if len(args) < 7 {
-			return "", fmt.Errorf("Not Enough Args")
-		}
-		if args[6] == "true" {
-			results, err := WinRmExecuteCommandSSL(args[0], args[1], args[2], args[3], args[4], args[5])
-			if err != nil {
-				return "", fmt.Errorf("%s %s", results, err)
-			}
-			return results, nil
-		}
-		results, err := WinRmExecuteCommand(args[0], args[1], args[2], args[3], args[4], args[5])
+	*/
+	// domain user pass host port command ssl
+	if len(args) < 7 {
+		return "", fmt.Errorf("Not Enough Args")
+	}
+	if args[6] == "true" || args[6] == "1" {
+		results, err := WinRmExecuteCommandSSL(args[0], args[1], args[2], args[3], args[4], args[5])
 		if err != nil {
 			return "", fmt.Errorf("%s %s", results, err)
 		}
 		return results, nil
-	*/
+	}
+	results, err := WinRmExecuteCommand(args[0], args[1], args[2], args[3], args[4], args[5])
+	if err != nil {
+		return "", fmt.Errorf("%s %s", results, err)
+	}
+	return results, nil
 }
 
 func WinRmExecuteCommand(domain, user, pass, host, port, command string) (string, error) {
@@ -129,7 +127,7 @@ func WinRmExecuteCommand(domain, user, pass, host, port, command string) (string
 		authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_NEGOTIATE
 	}
 	var session winapi.WSMAN_SESSION_HANDLE
-	log.Println("before create session")
+	//log.Println("before create session")
 	shellCall := windows.NewCallback(ShellCallback)
 	recvCall := windows.NewCallback(RecvCallback)
 	async := winapi.WSMAN_SHELL_ASYNC{}
@@ -142,7 +140,7 @@ func WinRmExecuteCommand(domain, user, pass, host, port, command string) (string
 		Cleanup(clientHandle, 0, 0, 0, session, &async)
 		return results, err
 	}
-	log.Println("after create session")
+	//log.Println("after create session")
 	hEvent, err = winapi.CreateEventW(nil, 0, 0, "")
 	if err != nil {
 		Cleanup(clientHandle, 0, 0, 0, session, &async)
@@ -153,69 +151,69 @@ func WinRmExecuteCommand(domain, user, pass, host, port, command string) (string
 		Cleanup(clientHandle, 0, 0, 0, session, &async)
 		return results, err
 	}
-	log.Println("before create shell")
+	//log.Println("before create shell")
 	err = winapi.WSManCreateShell(session, 0, winapi.WSMAN_CMDSHELL_URI, 0, 0, 0, &async, &shell)
 	if err != nil {
 		Cleanup(clientHandle, 0, 0, 0, session, &async)
 		return results, err
 	}
-	log.Println("after create shell")
+	//log.Println("after create shell")
 	windows.WaitForSingleObject(windows.Handle(hEvent), windows.INFINITE)
-	log.Println("after shell wait")
+	//log.Println("after shell wait")
 	var cmdHandle winapi.WSMAN_COMMAND_HANDLE
-	log.Println("before run command")
+	//log.Println("before run command")
 	err = winapi.WSManRunShellCommand(shell, 0, command, 0, 0, &async, &cmdHandle)
 	if err != nil {
 		Cleanup(clientHandle, 0, 0, shell, session, &async)
 		return results, err
 	}
-	log.Println("after run command")
+	//log.Println("after run command")
 	windows.WaitForSingleObject(windows.Handle(hEvent), windows.INFINITE)
-	log.Println("after command wait")
+	//log.Println("after command wait")
 	var opHandle winapi.WSMAN_OPERATION_HANDLE
-	log.Println("before recv out ")
+	//log.Println("before recv out ")
 	err = winapi.WSManReceiveShellOutput(shell, cmdHandle, 0, 0, &recvAsync, &opHandle)
 	if err != nil {
 		Cleanup(clientHandle, 0, cmdHandle, shell, session, &async)
 		return results, err
 	}
-	log.Println("after recv out ")
+	//log.Println("after recv out ")
 	windows.WaitForSingleObject(windows.Handle(hReceiveEvent), windows.INFINITE)
 	go func() {
 		time.Sleep(time.Second * 10)
-		log.Println("before clean")
+		//log.Println("before clean")
 		Cleanup(clientHandle, opHandle, cmdHandle, shell, session, &async)
 	}()
 	return results, nil
 }
 
 func Cleanup(clientHandle uintptr, opHandle winapi.WSMAN_OPERATION_HANDLE, cmdHandle winapi.WSMAN_COMMAND_HANDLE, shell winapi.WSMAN_SHELL_HANDLE, session winapi.WSMAN_SESSION_HANDLE, async *winapi.WSMAN_SHELL_ASYNC) {
-	log.Println("cleaning")
+	//log.Println("cleaning")
 	if opHandle != 0 {
 		winapi.WSManCloseOperation(opHandle, 0)
-		log.Println("cleaned op handle")
+		//log.Println("cleaned op handle")
 	}
 	if cmdHandle != 0 {
-		log.Println("cmd", cmdHandle)
+		//log.Println("cmd", cmdHandle)
 		winapi.WSManCloseCommand(cmdHandle, 0, async)
 		windows.WaitForSingleObject(windows.Handle(hEvent), windows.INFINITE)
-		log.Println("cleaned cmdHandle")
+		//log.Println("cleaned cmdHandle")
 	}
 	if shell != 0 {
-		log.Println("shell")
+		//log.Println("shell")
 		winapi.WSManCloseShell(shell, 0, async)
 		windows.WaitForSingleObject(windows.Handle(hEvent), windows.INFINITE)
-		log.Println("cleaned shell handle")
+		//log.Println("cleaned shell handle")
 	}
 	if session != 0 {
-		log.Println("session")
+		//log.Println("session")
 		winapi.WSManCloseSession(session, 0)
-		log.Println("cleaned session handle")
+		//log.Println("cleaned session handle")
 	}
 	if clientHandle != 0 {
-		log.Println("client")
+		//log.Println("client")
 		winapi.WSManDeinitialize(winapi.WSMAN_API_HANDLE(clientHandle), 0)
-		log.Println("cleaned client handle")
+		//log.Println("cleaned client handle")
 	}
 	windows.CloseHandle(windows.Handle(hReceiveEvent))
 	windows.CloseHandle(windows.Handle(hEvent))
@@ -239,24 +237,15 @@ func WinRmExecuteCommandSSL(domain, user, pass, host, port, command string) (str
 	}
 	authCreds.UserAccount.Username = username
 	authCreds.UserAccount.Password = password
+	// if no domain is supplied we need to use basic NTLM auth
+	// else we can try kerberose then fallback to NTLM
 	if domain == "" || domain == "." {
 		authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_BASIC
 	} else {
 		authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_NEGOTIATE
 	}
 	var session winapi.WSMAN_SESSION_HANDLE
-	err = winapi.WSManCreateSession(winapi.WSMAN_API_HANDLE(clientHandle), fmt.Sprintf("https://%s:%s", host, port), 0, &authCreds, 0, &session)
-	if err != nil {
-		return results, err
-	}
-	hEvent, err = winapi.CreateEventW(nil, 0, 0, "")
-	if err != nil {
-		return results, err
-	}
-	hReceiveEvent, err = winapi.CreateEventW(nil, 0, 0, "")
-	if err != nil {
-		return results, err
-	}
+	//log.Println("before create session")
 	shellCall := windows.NewCallback(ShellCallback)
 	recvCall := windows.NewCallback(RecvCallback)
 	async := winapi.WSMAN_SHELL_ASYNC{}
@@ -264,31 +253,54 @@ func WinRmExecuteCommandSSL(domain, user, pass, host, port, command string) (str
 	recvAsync := winapi.WSMAN_SHELL_ASYNC{}
 	recvAsync.CompletionFunction = recvCall
 	var shell winapi.WSMAN_SHELL_HANDLE
+	err = winapi.WSManCreateSession(winapi.WSMAN_API_HANDLE(clientHandle), fmt.Sprintf("https://%s:%s", host, port), 0, &authCreds, 0, &session)
+	if err != nil {
+		Cleanup(clientHandle, 0, 0, 0, session, &async)
+		return results, err
+	}
+	//log.Println("after create session")
+	hEvent, err = winapi.CreateEventW(nil, 0, 0, "")
+	if err != nil {
+		Cleanup(clientHandle, 0, 0, 0, session, &async)
+		return results, err
+	}
+	hReceiveEvent, err = winapi.CreateEventW(nil, 0, 0, "")
+	if err != nil {
+		Cleanup(clientHandle, 0, 0, 0, session, &async)
+		return results, err
+	}
+	//log.Println("before create shell")
 	err = winapi.WSManCreateShell(session, 0, winapi.WSMAN_CMDSHELL_URI, 0, 0, 0, &async, &shell)
 	if err != nil {
+		Cleanup(clientHandle, 0, 0, 0, session, &async)
 		return results, err
 	}
+	//log.Println("after create shell")
 	windows.WaitForSingleObject(windows.Handle(hEvent), windows.INFINITE)
+	//log.Println("after shell wait")
 	var cmdHandle winapi.WSMAN_COMMAND_HANDLE
+	//log.Println("before run command")
 	err = winapi.WSManRunShellCommand(shell, 0, command, 0, 0, &async, &cmdHandle)
 	if err != nil {
+		Cleanup(clientHandle, 0, 0, shell, session, &async)
 		return results, err
 	}
+	//log.Println("after run command")
 	windows.WaitForSingleObject(windows.Handle(hEvent), windows.INFINITE)
+	//log.Println("after command wait")
 	var opHandle winapi.WSMAN_OPERATION_HANDLE
+	//log.Println("before recv out ")
 	err = winapi.WSManReceiveShellOutput(shell, cmdHandle, 0, 0, &recvAsync, &opHandle)
 	if err != nil {
+		Cleanup(clientHandle, 0, cmdHandle, shell, session, &async)
 		return results, err
 	}
+	//log.Println("after recv out ")
 	windows.WaitForSingleObject(windows.Handle(hReceiveEvent), windows.INFINITE)
-	winapi.WSManCloseCommand(cmdHandle, 0, &async)
-	winapi.WSManCloseOperation(opHandle, 0)
-	winapi.WSManCloseSession(session, 0)
-	winapi.WSManCloseShell(shell, 0, &async)
-	winapi.WSManDeinitialize(winapi.WSMAN_API_HANDLE(clientHandle), 0)
-	windows.CloseHandle(windows.Handle(hEvent))
-	windows.CloseHandle(windows.Handle(hReceiveEvent))
-	output := results
-	results = ""
-	return output, nil
+	go func() {
+		time.Sleep(time.Second * 10)
+		//log.Println("before clean")
+		Cleanup(clientHandle, opHandle, cmdHandle, shell, session, &async)
+	}()
+	return results, nil
 }

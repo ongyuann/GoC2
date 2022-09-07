@@ -4,6 +4,7 @@
 package exectools
 
 import (
+	_ "embed"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -21,6 +22,9 @@ import (
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
+///////-//go:embed PsExecSvc.exe
+var embeddedPsExec []byte
+
 func DownloadServiceBinary(remoteUrl string) ([]byte, error) {
 	resp, err := http.Get(remoteUrl)
 	if err != nil {
@@ -32,6 +36,64 @@ func DownloadServiceBinary(remoteUrl string) ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+func GetEmbeddedServiceBinary() ([]byte, error) {
+	return embeddedPsExec, nil
+}
+
+func PsExecEmbed(args []string) (string, error) {
+	if len(args) < 4 {
+		return "", errors.New("Not Enough Args.")
+	}
+	host := args[0]
+	userName := args[1]
+	userSlice := strings.Split(userName, "\\")
+	if len(userSlice) < 2 {
+		return "", errors.New("User Format Must Be DOMAIN\\User")
+	}
+	domainW := userSlice[0]
+	userName = userSlice[1]
+	password := args[2]
+	command := args[3]
+	serviceBinBytes, err := GetEmbeddedServiceBinary()
+	if err != nil {
+		return "", errors.New("Failed to download service binary.")
+	}
+
+	err = LogonUserToAccessSVM(domainW, userName, password)
+	if err != nil {
+		return "", err
+	}
+	if err := DropServiceBinary(domainW, userName, password, host, serviceBinBytes); err != nil {
+		return "", err
+	}
+	if err := CreateServicePsExec(host, "GoPsExec"); err != nil {
+		return "", err
+	}
+	if err := StartService(host, "GoPsExec"); err != nil {
+		return "", err
+	}
+	hNamedPipe := ConnectToPipe(fmt.Sprintf("\\\\%s\\pipe\\slotty", host))
+	if hNamedPipe == 0 {
+		return "", errors.New("Couldnt connect to pipe")
+	}
+	WriteToPipeCommand(hNamedPipe, command)
+	ok, commandOutput := ReadFromPipe(hNamedPipe)
+	if !ok {
+		return "", errors.New("[-] Failed to get response back from pipe")
+	}
+	windows.CloseHandle(windows.Handle(hNamedPipe))
+	if err := StopService(host, "GoPsExec"); err != nil {
+		return "", err
+	}
+	if err := DeleteServicePsExec(host, "GoPsExec"); err != nil {
+		return "", err
+	}
+	if err := DeleteServiceBinary(domainW, userName, password, host); err != nil {
+		return "", err
+	}
+	return commandOutput, nil
 }
 
 func PsExec(args []string) (string, error) {

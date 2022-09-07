@@ -634,7 +634,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "list-shares":
 		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <domain\\username> <passwordOrNthash> <command>: ")
 	case "ps-exec":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <domain\\username> <password><remoteUrlOfBinary> <command>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <domain\\username> <password> <Url of binary> <command>: ")
 	case "fileless-service":
 		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <serviceName> <command>: ")
 	case "subnet-scan":
@@ -690,7 +690,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "list-pipes":
 		PrepareTaskSimple(c, clientId, command)
 	case "winrm-exec":
-		PrepareTaskWithArgs(c, clientId, command, "<Domain> <Username> <Password> <Host> <Port> <Command> <SSL>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<Domain> <Username> <Password> <Host> <Port> <Command> <SSL 1,0 >: ")
 	default:
 		c.Println("Task not found.")
 	}
