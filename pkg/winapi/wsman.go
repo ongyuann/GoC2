@@ -96,7 +96,7 @@ func WSManCloseOperation(operation WSMAN_OPERATION_HANDLE, flags uint32) error {
 	return nil
 }
 func WSManCloseCommand(command WSMAN_COMMAND_HANDLE, flags uint32, async *WSMAN_SHELL_ASYNC) error {
-	pWSManCloseCommand.Call(uintptr(command), uintptr(flags), uintptr(unsafe.Pointer(&async)))
+	pWSManCloseCommand.Call(uintptr(command), uintptr(flags), uintptr(unsafe.Pointer(async)))
 	return nil
 }
 
