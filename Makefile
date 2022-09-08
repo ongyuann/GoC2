@@ -18,6 +18,8 @@ windows_server:
 windows_cli:
 	echo "Building Operator CLI"
 	GOOS=windows GOARCH=amd64 go build  -ldflags "-s -w" -o bin/operator.exe cmd/operator/operator.go
+windows_malleable:
+	GOOS=windows GOARCH=amd64 go build  -ldflags "-s -w " -o bin/malleable.exe cmd/malleable/malleable.go
 
 
 client_windows_garble:
@@ -37,6 +39,10 @@ client_windows_debug:
 	@echo "press enter once you made that change to start building..."
 	@read NULL
 	GOOS=windows go build -ldflags "-s -w" -tags windows -o bin/client.exe cmd/client/client.go
+
+client_windows_dll:
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -buildmode=c-shared -ldflags="-w -s -H=windowsgui" -o bin/clientDLL.dll cmd/clientDLL/clientDLL.go
+
 
 client_windows:
 	@echo  - README -
@@ -80,4 +86,4 @@ macos: macos_server macos_cli
 
 linux: linux_server linux_cli
 
-windows: windows_server windows_cli
+windows: windows_server windows_cli windows_malleable

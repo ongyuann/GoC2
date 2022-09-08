@@ -3,11 +3,10 @@ module github.com/latortuga71/GoC2
 go 1.18
 
 require (
-	github.com/Binject/go-donut v0.0.0-20210701074227-67a31e2d883e
+	github.com/Binject/debug v0.0.0-20211007083345-9605c99179ee
 	github.com/C-Sto/BananaPhone v0.0.0-20220220002628-6585e5913761
-	github.com/Velocidex/regparser v0.0.0-20200428153047-c2d019c325d7
 	github.com/abiosoft/ishell/v2 v2.0.2
-	github.com/akamensky/argparse v1.3.1
+	github.com/akamensky/argparse v1.4.0
 	github.com/gin-gonic/gin v1.8.1
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
@@ -15,19 +14,18 @@ require (
 	github.com/jpillora/chisel v1.7.7
 	github.com/kbinani/screenshot v0.0.0-20210720154843-7d3a670d8329
 	github.com/mattn/go-shellwords v1.0.12
-	github.com/rs/zerolog v1.27.0
-	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
-	golang.org/x/sys v0.0.0-20220818161305-2296e01440c6
+	github.com/rs/zerolog v1.28.0
+	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
+	golang.org/x/sys v0.0.0-20220907062415-87db552b00fd
 	golang.org/x/text v0.3.7
+	www.velocidex.com/golang/regparser v0.0.0-20220803120500-8e74df808b0a
 )
 
 require (
-	github.com/Binject/debug v0.0.0-20210312092933-6277045c2fdf // indirect
 	github.com/abiosoft/ishell v2.0.0+incompatible // indirect
 	github.com/abiosoft/readline v0.0.0-20180607040430-155bce2042db // indirect
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 // indirect
 	github.com/awgh/rawreader v0.0.0-20200626064944-56820a9c6da4 // indirect
-	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.12.0 // indirect
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
@@ -39,8 +37,6 @@ require (
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-playground/validator/v10 v10.10.0 // indirect
 	github.com/goccy/go-json v0.9.7 // indirect
-	github.com/google/pprof v0.0.0-20220818150347-1763105d910c // indirect
-	github.com/ianlancetaylor/demangle v0.0.0-20220517205856-0058ec4f073c // indirect
 	github.com/jezek/xgb v0.0.0-20210312150743-0e0f116e1240 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/jpillora/sizestr v1.0.0 // indirect

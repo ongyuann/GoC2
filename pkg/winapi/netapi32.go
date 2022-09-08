@@ -3,6 +3,8 @@ package winapi
 import (
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 const (
@@ -18,7 +20,37 @@ var (
 	pNetUserGetLocalGroups   = pModNetApi32.NewProc("NetUserGetLocalGroups")
 	pNetApiBufferAllocate    = pModNetApi32.NewProc("NetApiBufferAllocate")
 	pNetApiBufferFree        = pModNetApi32.NewProc("NetApiBufferFree")
+	pNetLocalGroupAddMembers = pModNetApi32.NewProc("NetLocalGroupAddMembers")
+	pNetLocalGroupDelMembers = pModNetApi32.NewProc("NetLocalGroupDelMembers")
 )
+
+type LOCALGROUP_MEMBERS_INFO_3 struct {
+	Lgrmi3_domainandname *uint16
+}
+
+func NetLocalGroupDelMembers(groupName string, level uint32, buffer *uintptr, entries uint32) error {
+	g, err := windows.UTF16PtrFromString(groupName)
+	if err != nil {
+		return err
+	}
+	res, _, err := pNetLocalGroupDelMembers.Call(uintptr(0), uintptr(unsafe.Pointer(g)), uintptr(level), uintptr(unsafe.Pointer(buffer)), uintptr(entries))
+	if res != 0 {
+		return err
+	}
+	return nil
+}
+
+func NetLocalGroupAddMembers(groupName string, level uint32, buffer *uintptr, entries uint32) error {
+	g, err := windows.UTF16PtrFromString(groupName)
+	if err != nil {
+		return err
+	}
+	res, _, err := pNetLocalGroupAddMembers.Call(uintptr(0), uintptr(unsafe.Pointer(g)), uintptr(level), uintptr(unsafe.Pointer(buffer)), uintptr(entries))
+	if res != 0 {
+		return err
+	}
+	return nil
+}
 
 func NetApiBufferFree(buffer uintptr) bool {
 	res, _, _ := pNetApiBufferFree.Call(buffer)

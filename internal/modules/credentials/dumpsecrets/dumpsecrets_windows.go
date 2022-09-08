@@ -21,7 +21,6 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/Velocidex/regparser"
 	"github.com/hirochachacha/go-smb2"
 	"github.com/latortuga71/GoC2/pkg/winapi"
 	"golang.org/x/crypto/md4"
@@ -30,6 +29,7 @@ import (
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 	"golang.org/x/text/encoding/unicode"
+	"www.velocidex.com/golang/regparser"
 )
 
 type SamSecret struct {

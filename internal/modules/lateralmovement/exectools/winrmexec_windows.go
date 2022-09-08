@@ -123,6 +123,11 @@ func WinRmExecuteCommand(domain, user, pass, host, port, command string) (string
 	// else we can try kerberose then fallback to NTLM
 	if domain == "" || domain == "." {
 		authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_BASIC
+		username, err = windows.UTF16PtrFromString(fmt.Sprintf("%s", user))
+		if err != nil {
+			return results, err
+		}
+		authCreds.UserAccount.Username = username
 	} else {
 		authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_NEGOTIATE
 	}

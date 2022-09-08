@@ -1,4 +1,4 @@
-package operator
+package SRDI
 
 import (
 	"encoding/binary"
@@ -11,7 +11,24 @@ import (
 
 // credits to the beast https://gist.github.com/leoloobeek/c726719d25d7e7953d4121bd93dd2ed3
 
-func sRDIGenerate(dllPath string, dllFunctionName string) (string, error) {
+// API server sends information to this function and gets back the converted bytes array to return to the client as base64
+func SRDIFromByteArray(rawDll []byte, functionName string) []byte {
+	// functionHash is 0x10 by default, otherwise get the hash and convert to bytes
+	var hashFunction []byte
+	if functionName != "" {
+		hashFunctionUint32 := hashFunctionName(functionName)
+		hashFunction = pack(hashFunctionUint32)
+	} else {
+		hashFunction = pack(uint32(0x10))
+	}
+	var userData []byte
+	flags := 0
+	flags |= 0x1
+	shellcode := convertToShellcode(rawDll, hashFunction, userData, flags)
+	return shellcode
+}
+
+func SRDIGenerate(dllPath string, dllFunctionName string) (string, error) {
 	dllBytes, err := readFile(dllPath)
 	if err != nil {
 		return "", nil
@@ -26,7 +43,8 @@ func sRDIGenerate(dllPath string, dllFunctionName string) (string, error) {
 		hashFunction = pack(uint32(0x10))
 	}
 	var userData []byte
-	shellcode := convertToShellcode(dllBytes, hashFunction, userData, 0)
+
+	shellcode := convertToShellcode(dllBytes, hashFunction, userData, 0x1) // 0x1 means clear pe header
 	outfile := strings.Replace(dllPath, ".dll", ".bin", 1)
 	writeFile(outfile, shellcode)
 	return fmt.Sprintf("[+] Wrote SRDI payload to %s\n", outfile), nil

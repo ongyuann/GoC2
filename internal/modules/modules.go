@@ -112,6 +112,8 @@ var PersistenceModulesList = [...]string{
 	"launch-items",
 	"login-items",
 	"crontab",
+	"add-user",
+	"remove-user",
 	// bashrc
 	// crontab
 	// launchd
@@ -137,6 +139,8 @@ var EnumerationModulesList = [...]string{
 	"enum-groups",
 	"enum-domain",
 	"screenshot",
+	"nslookup",
+	"reverse-lookup",
 }
 
 var CredentialsModulesList = [...]string{
@@ -161,7 +165,7 @@ var ImpersonationModulesList = [...]string{
 }
 
 var BasicModulesList = [...]string{
-	"exit", "sleep", "jitter", "pwd", "cd", "rm", "cp", "mv", "ls", "cat", "touch", "ps", "whoami", "mkdir", "rmdir", "killproc", "die", "shell", "download", "remote-download", "upload", "nslookup", "reverse-lookup",
+	"exit", "sleep", "jitter", "pwd", "cd", "rm", "cp", "mv", "ls", "cat", "touch", "ps", "whoami", "mkdir", "rmdir", "killproc", "die", "shell", "download", "remote-download", "upload",
 	"enumeration",
 	"impersonation",
 	"persistence",
