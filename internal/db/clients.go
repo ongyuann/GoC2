@@ -179,12 +179,21 @@ func (db *ClientDB) DeleteConnection(uuid string) bool {
 	return true
 }
 
+func EncryptTaskWithSymKey(data []byte, clientId string) []byte {
+	var output []byte
+	key := ClientsDatabase.Database[clientId].ClientSideSymKey
+	for i := 0; i < len(data); i++ {
+		output = append(output, data[i]^key[i%len(key)])
+	}
+	return output
+}
+
 func (db *ClientDB) SendTask(uuid string, data []byte) bool {
 	db.Lock()
 	defer db.Unlock()
 	if client, ok := db.Database[uuid]; ok {
 		if client.ListenerType == 1 {
-			// client is https
+			// client is https we encrypt task when client requests it via http request
 			return true
 		}
 		err := client.WSConn.WriteMessage(data)

@@ -496,6 +496,10 @@ func ClientDoCheckInHttps(client *data.Client, endpoint string) error {
 	}
 }
 
+type EncryptedData struct {
+	Data []byte `json:"data"`
+}
+
 func ClientHttpsPollHandler(client *data.Client, endpoint string) ([]data.Task, error) {
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
@@ -513,10 +517,25 @@ func ClientHttpsPollHandler(client *data.Client, endpoint string) ([]data.Task, 
 		return nil, err
 	}
 	defer resp.Body.Close()
-	dataTasks, err := ioutil.ReadAll(resp.Body)
+	encryptedTasks, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
+	eStruct := EncryptedData{}
+	err = json.Unmarshal(encryptedTasks, &eStruct)
+	if err != nil {
+		return nil, err
+	}
+	//fmt.Println(eStruct)
+	//fmt.Println(string(encryptedTasks))
+	dataTasks, err := DecryptMessageWithSymKey(eStruct.Data, []byte("71"))
+	/*
+		dataTasks, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	//fmt.Println(string(dataTasks))
 	tasks := make([]data.Task, 0)
 	err = json.Unmarshal(dataTasks, &tasks)
 	if err != nil {
@@ -585,6 +604,10 @@ func ClientReceiveHandler(client *data.Client) {
 			break
 		}
 		err, messageType := utils.CheckMessage(msg)
+		if err != nil {
+			ClientInterrupt <- os.Interrupt
+			break
+		}
 		switch messageType {
 		case "CheckIn":
 			err, uuid, publicKey := ClientHandleCheckInResp(msg)

@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -445,7 +446,17 @@ func ListenerHandleGetTasks(c *gin.Context) {
 		db.ClientsDatabase.UpdateClientOnline(idHeader, true)
 		log.Log.Debug().Msgf("Updated Client %s Last Seen Time.", idHeader)
 	}
-	c.JSON(http.StatusOK, db.ClientsDatabase.ClientGetAvailableTasks(idHeader))
+	//c.JSON(http.StatusOK, db.ClientsDatabase.ClientGetAvailableTasks(idHeader))
+	tasks := db.ClientsDatabase.ClientGetAvailableTasks(idHeader)
+	t, err := json.Marshal(tasks)
+	fmt.Println(string(t))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"Status": "Error"})
+		return
+	}
+	encryptedTasks := server.EncryptTaskWithSymKey(t, []byte("71"))
+	fmt.Println(string(encryptedTasks))
+	c.JSON(http.StatusOK, gin.H{"data": encryptedTasks})
 }
 
 func StartHttpsListener(port string, shutdownChannel chan int) {

