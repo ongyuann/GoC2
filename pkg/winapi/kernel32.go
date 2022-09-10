@@ -61,7 +61,25 @@ var (
 	pGetProcAddress     = pModKernel32.NewProc("GetProcAddress")
 	pCreateEventW       = pModKernel32.NewProc("CreateEventW")
 	pSetEvent           = pModKernel32.NewProc("SetEvent")
+	pGetThreadContext   = pModKernel32.NewProc("GetThreadContext")
+	pSetThreadContext   = pModKernel32.NewProc("SetThreadContext")
 )
+
+func SetThreadContext(handle uintptr, context *CONTEXT) error {
+	res, _, err := pSetThreadContext.Call(handle, uintptr(unsafe.Pointer(context)))
+	if res == 0 {
+		return err
+	}
+	return nil
+}
+
+func GetThreadContext(handle uintptr, context *CONTEXT) error {
+	res, _, err := pGetThreadContext.Call(handle, uintptr(unsafe.Pointer(context)))
+	if res == 0 {
+		return err
+	}
+	return nil
+}
 
 func SetEvent(handle uintptr) error {
 	res, _, err := pSetEvent.Call(handle)

