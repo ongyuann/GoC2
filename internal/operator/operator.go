@@ -655,7 +655,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "spawn-inject":
 		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <PathToExeToSpawn>: ")
 	case "spawn-inject-pipe":
-		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <PathToExeToSpawn>: ")
+		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <PathToExeToSpawn> <TimeoutMins>: ")
 	case "screenshot":
 		PrepareTaskSimple(c, clientId, command)
 	case "run":

