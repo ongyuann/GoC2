@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/latortuga71/GoC2/pkg/winapi"
@@ -245,7 +246,9 @@ func GetRealSectionSize(peHeader *pe.OptionalHeader64, section *pe.Section) uint
 	}
 	return 0
 }
-
+func CreateExportAddressTable(peHeader *pe.OptionalHeader64, memoryStart uintptr) error {
+	return nil
+}
 func CreateImportAddressTable(peHeader *pe.OptionalHeader64, memoryStart uintptr) error {
 	dataDirectory := peHeader.DataDirectory
 	if len(dataDirectory) == 0 {
@@ -460,6 +463,10 @@ func NewRawPE(peT PeType, removeDOSHeaders bool, data []byte) *RawPe {
 	}
 }
 
+func (r *RawPe) FindExportedFunction(funcName string) {
+
+}
+
 func RemoveDOSHeader(baseAddress uintptr) {
 	// zero dos header and dos stub, and rich header
 	//https://stackoverflow.com/questions/65168544/dos-stub-in-a-pe-file
@@ -472,25 +479,25 @@ func RemoveDOSHeader(baseAddress uintptr) {
 	}
 }
 
-func (r *RawPe) LoadPEFromMemory() error {
+func (r *RawPe) LoadPEFromMemory() (string, error) {
 	buffer := bytes.NewBuffer(r.rawData)
 	peFile, err := pe.NewFile(bytes.NewReader(buffer.Bytes()))
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to load pe file %v", err))
+		return "", errors.New(fmt.Sprintf("Failed to load pe file %v", err))
 	}
 	r.peStruct = peFile
 	if !DosHeaderCheck(r.rawData) {
-		return errors.New("Dos header check failed.")
+		return "", errors.New("Dos header check failed.")
 	}
 	// only support 64 bit.
 	r.peHeaders = r.peStruct.OptionalHeader.(*pe.OptionalHeader64)
 	if (r.peHeaders.SectionAlignment & 1) != 0 {
-		return (errors.New("Unknown Alignment error."))
+		return "", errors.New("Unknown Alignment error.")
 	}
 	//alignedImgSize := AlignValueUp(r.peHeaders.SizeOfImage, uint32(PAGE_SIZE))
 	r.alignedImageSize = AlignValueUp(r.peHeaders.SizeOfImage, uint32(PAGE_SIZE))
 	if r.alignedImageSize != AlignValueUp(r.peStruct.Sections[r.peStruct.NumberOfSections-1].VirtualAddress+r.peStruct.Sections[r.peStruct.NumberOfSections-1].Size, uint32(PAGE_SIZE)) {
-		return errors.New("Failed to align image.")
+		return "", errors.New("Failed to align image.")
 	}
 	// allocating memory chunk for image.
 	var baseAddressOfMemoryAlloc uintptr
@@ -500,18 +507,18 @@ func (r *RawPe) LoadPEFromMemory() error {
 		//log.Println("Failed to allocate at preffered base address...Attempting to allocate anywhere else.")
 		baseAddressOfMemoryAlloc, err = winapi.VirtualAlloc(uintptr(0), r.alignedImageSize, winapi.MEM_RESERVE|winapi.MEM_COMMIT, winapi.PAGE_READWRITE)
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to allocate memory at random location %v", err))
+			return "", errors.New(fmt.Sprintf("Failed to allocate memory at random location %v", err))
 		}
 	}
 	// base memory chunk allocated.
 	peHead, err := winapi.VirtualAlloc(baseAddressOfMemoryAlloc, r.peHeaders.SizeOfHeaders, winapi.MEM_COMMIT, winapi.PAGE_READWRITE)
 	if peHead == 0 {
-		return errors.New(fmt.Sprintf("Failed to commit memory for pe headers %v", err))
+		return "", errors.New(fmt.Sprintf("Failed to commit memory for pe headers %v", err))
 	}
 	// committed memory for pe headers.
 	var wrote uint32
 	if ok, err := winapi.WriteProcessMemory(syscall.Handle(winapi.GetCurrentProcess()), peHead, uintptr(unsafe.Pointer(&r.rawData[0])), r.peHeaders.SizeOfHeaders, &wrote); !ok {
-		return errors.New(fmt.Sprintf("Failed to write pe headers to memory %v", err))
+		return "", errors.New(fmt.Sprintf("Failed to write pe headers to memory %v", err))
 	}
 	// wrote pe headers to memory
 	r.peHeaders.ImageBase = uint64(baseAddressOfMemoryAlloc)
@@ -519,57 +526,63 @@ func (r *RawPe) LoadPEFromMemory() error {
 	// now you commit sections in the memory block and copy the sections to the proper locations
 	memSections, err := CopySectionsToMemory(r.peStruct, r.peHeaders, baseAddressOfMemoryAlloc)
 	if err != nil {
-		return err
+		return "", err
 	}
 	//base relocations if preferred base address is doesnt match where we allocated memory
 	baseAddressDiff := uint64(baseAddressOfMemoryAlloc - prefBaseAddr)
 	if baseAddressDiff != 0 {
 		if err := BaseRelocate(baseAddressDiff, baseAddressOfMemoryAlloc, *r.peHeaders); err != nil {
-			return errors.New(fmt.Sprintf("Failed to base relocate %v", err))
+			return "", errors.New(fmt.Sprintf("Failed to base relocate %v", err))
 		}
 	}
 	err = CreateImportAddressTable(r.peHeaders, baseAddressOfMemoryAlloc)
 	if err != nil {
-		return err
+		return "", err
 	}
 	err = FinalizeSections(r.peStruct, r.peHeaders, baseAddressOfMemoryAlloc, memSections)
 	if err != nil {
-		return err
+		return "", err
 	}
-	// remove dos headers (OPTIONAL)
-	/*if r.removeHeader {
-		RemoveDOSHeader(baseAddressOfMemoryAlloc)
-	}*/
 	RemoveDOSHeader(baseAddressOfMemoryAlloc)
 	//ExecuteTLSCallbacks TODO
 	entryPointPtr := unsafe.Pointer(uintptr(r.peHeaders.AddressOfEntryPoint) + baseAddressOfMemoryAlloc)
-	//runtime.LockOSThread()
 	r.peEntry = uintptr(entryPointPtr)
 	r.allocatedMemoryBase = baseAddressOfMemoryAlloc
 	switch r.peType {
 	case Dll:
-		// calling dll entry point
-		syscall.Syscall(uintptr(entryPointPtr), 3, baseAddressOfMemoryAlloc, 1, 0)
+		go func() {
+			// clean memory once it exits thread.
+			//windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
+			// calling dll entry point
+			syscall.Syscall(uintptr(entryPointPtr), 3, baseAddressOfMemoryAlloc, 1, 0)
+			time.Sleep(time.Second * 60)
+			syscall.Syscall(r.peEntry, 3, r.allocatedMemoryBase, 0, 0)
+			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
+		}()
 		break
 	case Exe:
 		// calling exe entry point no args
 		// we are not patching exitThread so when exes exit they will crash process
 		// exe needs to call exitThread before exiting and needs to be run in seperate thread
+		// in this goroutine we run the entry point in another thread. wait for it to finish then free the memory
 		hThread, err := winapi.CreateThread(0, 0, uintptr(entryPointPtr), 0, 0, nil)
 		if err != nil {
-			return err
+			return "", err
 		}
-		windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
+		go func() {
+			// clean memory once it exits thread.
+			windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
+			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
+		}()
 		break
 	default:
-		return errors.New("Provided Invalid PE Type")
+		return "", errors.New("Provided Invalid PE Type")
 	}
-	//runtime.UnlockOSThread()
-	return nil
+	return fmt.Sprintf("[+] Memory Base %p Entry Point address %p", unsafe.Pointer(r.allocatedMemoryBase), entryPointPtr), nil
 }
 
 func (r *RawPe) FreePeFromMemory() error {
-	err := windows.VirtualFree(uintptr(r.peHeaders.ImageBase), 0, winapi.MEM_RELEASE)
+	err := windows.VirtualFree(r.allocatedMemoryBase, 0, winapi.MEM_RELEASE)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to free PE memory allocation %v", err))
 	}
@@ -579,7 +592,7 @@ func (r *RawPe) FreePeFromMemory() error {
 func (r *RawPe) FreePeDllFromMemory() error {
 	// calling dll detach.
 	syscall.Syscall(r.peEntry, 3, r.allocatedMemoryBase, 0, 0)
-	err := windows.VirtualFree(uintptr(r.peHeaders.ImageBase), 0, winapi.MEM_RELEASE)
+	err := windows.VirtualFree(r.allocatedMemoryBase, 0, winapi.MEM_RELEASE)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to free PE memory allocation %v", err))
 	}

@@ -63,7 +63,12 @@ var (
 	pSetEvent           = pModKernel32.NewProc("SetEvent")
 	pGetThreadContext   = pModKernel32.NewProc("GetThreadContext")
 	pSetThreadContext   = pModKernel32.NewProc("SetThreadContext")
+	pExitThread         = pModKernel32.NewProc("ExitThread")
 )
+
+func ExitThread() {
+	pExitThread.Call(uintptr(0))
+}
 
 func SetThreadContext(handle uintptr, context *CONTEXT) error {
 	res, _, err := pSetThreadContext.Call(handle, uintptr(unsafe.Pointer(context)))

@@ -597,24 +597,16 @@ func LoadPE(shellcode []byte, args []string) (string, error) {
 	}
 	if peloader.PeType(t) == peloader.Dll {
 		raw := peloader.NewRawPE(peloader.Dll, remove, shellcode)
-		err := raw.LoadPEFromMemory()
+		output, err := raw.LoadPEFromMemory()
 		if err != nil {
 			return "", err
 		}
-		err = raw.FreePeDllFromMemory()
-		if err != nil {
-			return "", err
-		}
-		return "[+] Successfully loaded dll via custom pe loader", nil
+		return output, nil
 	}
 	raw := peloader.NewRawPE(peloader.Exe, remove, shellcode)
-	err = raw.LoadPEFromMemory()
+	output, err := raw.LoadPEFromMemory()
 	if err != nil {
 		return "", err
 	}
-	err = raw.FreePeFromMemory()
-	if err != nil {
-		return "", err
-	}
-	return "[+] Successfully loaded exe via custom pe loader", nil
+	return output, nil
 }

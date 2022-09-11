@@ -170,9 +170,9 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		Client.Jitter = j
 		result, cmdError = fmt.Sprintf("%s", t.Args[0]), nil
 		jitterTask = true
-	case "die":
+	case "exit-process":
 		ClientInterrupt <- os.Interrupt
-		result, cmdError = "Stopping", nil
+		result, cmdError = "Process Exited.", nil
 	case "pwd":
 		result, cmdError = basic.PrintWorkingDirectory()
 	case "cd":

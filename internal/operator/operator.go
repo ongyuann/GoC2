@@ -489,7 +489,6 @@ func PrepareSRDI(c *ishell.Context) bool {
 		c.Printf("%s", err.Error())
 		return false
 	}
-	c.Println(string(body))
 	convertedPayload := data.SRDIPayload{
 		ConvertedDll: nil,
 	}
@@ -509,8 +508,7 @@ func PrepareSRDI(c *ishell.Context) bool {
 		c.Printf("%s%s", err.Error())
 		return false
 	}
-	//file.Close()
-	fmt.Printf("Wrote payload to disk %s %d bytes", file.Name(), wrote)
+	c.Printf("Wrote payload to disk %s %d bytes", file.Name(), wrote)
 	return true
 }
 
@@ -608,7 +606,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithOneArg(c, clientId, command, "<Jitter>: ")
 	case "exit":
 		break
-	case "die":
+	case "exit-process":
 		PrepareExitTask(clientId, command)
 	case "ifconfig":
 		PrepareTaskSimple(c, clientId, command)
