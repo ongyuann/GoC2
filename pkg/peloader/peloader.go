@@ -268,14 +268,37 @@ func FindExportedFunction(peHeader *pe.OptionalHeader64, memoryStart uintptr, ex
 		// we now need to check if that name matches what we asked for.
 		functionNameString := string(ReadAsciiFromMemoryNoBase(uintptr(unsafe.Pointer(functionName))))
 		if functionNameString == exportedFunction {
-			log.Println("Found Function.")
 			functionEntryPoint := memoryStart + uintptr(*(*uint32)(unsafe.Pointer((memoryStart + uintptr(exports.AddressOfFunctions) + uintptr(functionIdx*4)))))
-			log.Printf("Exported Function Is Located HERE! -> %p", unsafe.Pointer(functionEntryPoint))
 			return functionEntryPoint, nil
 		}
 	}
 	return 0, fmt.Errorf("Function Not Found.")
 }
+
+func ExecuteTLS(peHeader *pe.OptionalHeader64, memoryStart uintptr) error {
+	dataDirectory := peHeader.DataDirectory
+	if len(dataDirectory) == 0 {
+		return errors.New("[+] Data Directory Empty")
+	}
+	directory := dataDirectory[9]
+	if directory.VirtualAddress == 0 {
+		return nil // no tls
+	}
+	tlsDirectory := (*IMAGE_TLS_DIRECTORY)(unsafe.Pointer(memoryStart + uintptr(directory.VirtualAddress)))
+	callback := (unsafe.Pointer(tlsDirectory.AddressOfCallbacks))
+	if tlsDirectory.AddressOfCallbacks != 0 {
+		for {
+			callbackFunc := *(*uintptr)(callback)
+			if callbackFunc == 0 {
+				break
+			}
+			syscall.Syscall(uintptr(callbackFunc), 3, memoryStart, 1, 0)
+			callback = unsafe.Pointer(uintptr(callback) + 8)
+		}
+	}
+	return nil
+}
+
 func CreateImportAddressTable(peHeader *pe.OptionalHeader64, memoryStart uintptr) error {
 	dataDirectory := peHeader.DataDirectory
 	if len(dataDirectory) == 0 {
@@ -567,8 +590,11 @@ func (r *RawPe) LoadPEFromMemory() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	err = ExecuteTLS(r.peHeaders, baseAddressOfMemoryAlloc)
+	if err != nil {
+		return "", err
+	}
 	RemoveDOSHeader(baseAddressOfMemoryAlloc)
-	//ExecuteTLSCallbacks TODO
 	entryPointPtr := unsafe.Pointer(uintptr(r.peHeaders.AddressOfEntryPoint) + baseAddressOfMemoryAlloc)
 	r.peEntry = uintptr(entryPointPtr)
 	r.allocatedMemoryBase = baseAddressOfMemoryAlloc
@@ -576,21 +602,20 @@ func (r *RawPe) LoadPEFromMemory() (string, error) {
 	case Dll:
 		exportEntryPoint, err := FindExportedFunction(r.peHeaders, baseAddressOfMemoryAlloc, r.exportedFunction)
 		if err != nil {
+			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
 			return "", err
 		}
 		hThread, err := winapi.CreateThread(0, 0, uintptr(exportEntryPoint), 0, 0, nil)
 		if err != nil {
+			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
 			return "", err
 		}
 		go func() {
 			// clean memory once it exits thread.
-			//windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
-			// calling dll entry point
-			// clean memory once it exits thread.
 			windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
 			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
-			log.Println("Cleared Memory.")
 		}()
+		entryPointPtr = unsafe.Pointer(exportEntryPoint)
 		break
 	case Exe:
 		// calling exe entry point no args
@@ -599,6 +624,7 @@ func (r *RawPe) LoadPEFromMemory() (string, error) {
 		// in this goroutine we run the entry point in another thread. wait for it to finish then free the memory
 		hThread, err := winapi.CreateThread(0, 0, uintptr(entryPointPtr), 0, 0, nil)
 		if err != nil {
+			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
 			return "", err
 		}
 		go func() {
@@ -608,9 +634,10 @@ func (r *RawPe) LoadPEFromMemory() (string, error) {
 		}()
 		break
 	default:
+		windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
 		return "", errors.New("Provided Invalid PE Type")
 	}
-	return fmt.Sprintf("[+] Memory Base %p Entry Point address %p", unsafe.Pointer(r.allocatedMemoryBase), entryPointPtr), nil
+	return fmt.Sprintf("[+] Memory Base Address %p Entry Point Address %p", unsafe.Pointer(r.allocatedMemoryBase), entryPointPtr), nil
 }
 
 func (r *RawPe) FreePeFromMemory() error {
@@ -640,6 +667,15 @@ func DosHeaderCheck(rawPeFileData []byte) bool {
 }
 
 /////
+
+type IMAGE_TLS_DIRECTORY struct {
+	StartAddressOfRawData uintptr
+	EndAddressOfRawData   uintptr
+	AddressOfIndex        uintptr // PDWORD
+	AddressOfCallbacks    uintptr // PIMAGE_TLS_CALLBACK *;
+	SizeOfZeroFill        uint32
+	Characteristics       uint32
+}
 
 // ImageNtHeader represents the PE header and is the general term for a structure
 // named IMAGE_NT_HEADERS.
