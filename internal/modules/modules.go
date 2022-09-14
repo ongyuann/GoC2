@@ -135,6 +135,7 @@ var EnumerationModulesList = [...]string{
 	"list-services",
 	"list-ports",
 	"list-shares",
+	"enum-logons",
 	"enum-users",
 	"enum-groups",
 	"enum-domain",

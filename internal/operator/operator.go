@@ -810,6 +810,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithArgs(c, clientId, command, "<user> <group>: ")
 	case "remove-user":
 		PrepareTaskWithArgs(c, clientId, command, "<user> <group>: ")
+	case "enum-logons":
+		PrepareTaskSimple(c, clientId, command)
 	default:
 		c.Println("Task not found.")
 	}

