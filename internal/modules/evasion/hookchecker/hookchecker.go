@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/latortuga71/GoC2/pkg/winapi"
 	"golang.org/x/sys/windows"
 )
 
@@ -15,15 +14,27 @@ import (
 //NtProtectVirtualMemory
 
 func HookChecker(dllName string) (string, error) {
-	name, err := windows.UTF16PtrFromString("NtCreateThread")
-	lib, err := windows.LoadLibrary("ntdll")
+	var ntlldHandle windows.Handle
+	name, err := windows.UTF16PtrFromString("ntdll.dll")
 	if err != nil {
 		return "", err
 	}
-	pNtCreateThread, err := winapi.GetProcAddress(uintptr(lib), name)
+	/*funcName, err := windows.UTF16PtrFromString("NtCreateThread")
 	if err != nil {
 		return "", err
 	}
+	*/
+	err = windows.GetModuleHandleEx(windows.GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, name, &ntlldHandle)
+	if err != nil {
+		return "", err
+	}
+	pNtCreateThread, err := windows.GetProcAddress(ntlldHandle, "NtCreateThread")
+	/*
+		pNtCreateThread, err := winapi.GetProcAddress(uintptr(lib), name)
+		if err != nil {
+			return "", err
+		}
+	*/
 	hooked := CheckHook(pNtCreateThread)
 	if !hooked {
 		return "[-] Not Hooked", nil

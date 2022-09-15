@@ -55,6 +55,7 @@ var ExecutionModulesList = [...]string{
 
 var EvasionModulesList = [...]string{
 	"exit",
+	"hook-check",
 	"patch-amsi",
 	"patch-etw",
 	"disable-sysmon",
@@ -124,7 +125,6 @@ var PersistenceModulesList = [...]string{
 
 var EnumerationModulesList = [...]string{
 	"exit",
-	"hook-check",
 	"enum-modules",
 	"enum-drivers",
 	"env",

