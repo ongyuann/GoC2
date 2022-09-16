@@ -317,6 +317,9 @@ func validateDonut(payload *data.DonutPayload) bool {
 
 func SRDIEndpoint(c *gin.Context) {
 	LogRequest(c)
+	//body, _ := ioutil.ReadAll(c.Request.Body)
+	//println(string(body))
+	//return
 	srdiPayload := &data.SRDIPayload{}
 	err := c.BindJSON(srdiPayload)
 	if err != nil {
