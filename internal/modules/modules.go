@@ -35,6 +35,7 @@ package modules
 */
 var ExecutionModulesList = [...]string{
 	"exit",
+	"powershell",
 	"load-library",
 	"free-library",
 	"module-stomp",
