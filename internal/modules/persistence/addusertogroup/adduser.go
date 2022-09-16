@@ -8,6 +8,44 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+func AddUser(args []string) (string, error) {
+	if len(args) < 2 {
+		return "", fmt.Errorf("Not enough args")
+	}
+	name := args[0]
+	pw := args[1]
+	user := winapi.USER_INFO_1{}
+	nptr, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		return "", err
+	}
+	pptr, err := windows.UTF16PtrFromString(pw)
+	if err != nil {
+		return "", err
+	}
+	user.Name = nptr
+	user.Password = pptr
+	user.Priv = 1    // USER_PRIV_USER
+	user.Flags = 0x1 // UF_SCRIPT
+	err = winapi.NetUserAdd(&user)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("[+] Successfully added %s", name), nil
+}
+
+func RemoveUser(args []string) (string, error) {
+	if len(args) == 0 {
+		return "", fmt.Errorf("Not Enough Args.")
+	}
+	name := args[0]
+	err := winapi.NetUserDel(name)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("[+] Successfully removed %s", name), nil
+}
+
 func AddUserToGroup(args []string) (string, error) {
 	if len(args) < 2 {
 		return "", fmt.Errorf("Not Enough Args")

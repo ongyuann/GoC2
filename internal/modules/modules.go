@@ -115,6 +115,8 @@ var PersistenceModulesList = [...]string{
 	"crontab",
 	"add-user",
 	"remove-user",
+	"add-user-group",
+	"remove-user-group",
 	// bashrc
 	// crontab
 	// launchd

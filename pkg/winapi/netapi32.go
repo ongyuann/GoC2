@@ -1,6 +1,7 @@
 package winapi
 
 import (
+	"fmt"
 	"syscall"
 	"unsafe"
 
@@ -22,10 +23,43 @@ var (
 	pNetApiBufferFree        = pModNetApi32.NewProc("NetApiBufferFree")
 	pNetLocalGroupAddMembers = pModNetApi32.NewProc("NetLocalGroupAddMembers")
 	pNetLocalGroupDelMembers = pModNetApi32.NewProc("NetLocalGroupDelMembers")
+	pNetUserAdd              = pModNetApi32.NewProc("NetUserAdd")
+	pNetUserDel              = pModNetApi32.NewProc("NetUserDel")
 )
+
+type USER_INFO_1 struct {
+	Name        *uint16
+	Password    *uint16
+	PasswordAge uint32
+	Priv        uint32
+	HomeDir     *uint16
+	Comment     *uint16
+	Flags       uint32
+	ScriptPath  *uint16
+}
 
 type LOCALGROUP_MEMBERS_INFO_3 struct {
 	Lgrmi3_domainandname *uint16
+}
+
+func NetUserDel(user string) error {
+	u, err := windows.UTF16PtrFromString(user)
+	if err != nil {
+		return err
+	}
+	res, _, err := pNetUserDel.Call(uintptr(0), uintptr(unsafe.Pointer(u)))
+	if res != 0 {
+		return fmt.Errorf("Error Code 0x%x", res)
+	}
+	return nil
+}
+
+func NetUserAdd(info *USER_INFO_1) error {
+	res, _, _ := pNetUserAdd.Call(uintptr(0), uintptr(1), uintptr(unsafe.Pointer(info)), uintptr(0))
+	if res != 0 {
+		return fmt.Errorf("Error Code 0x%x", res)
+	}
+	return nil
 }
 
 func NetLocalGroupDelMembers(groupName string, level uint32, buffer *uintptr, entries uint32) error {

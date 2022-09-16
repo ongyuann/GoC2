@@ -807,8 +807,12 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "winrm-exec":
 		PrepareTaskWithArgs(c, clientId, command, "<Domain> <Username> <Password> <Host> <Port> <Command> <SSL 1,0 >: ")
 	case "add-user":
-		PrepareTaskWithArgs(c, clientId, command, "<user> <group>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<user> <pass>: ")
 	case "remove-user":
+		PrepareTaskWithOneArg(c, clientId, command, "<user>: ")
+	case "add-user-group":
+		PrepareTaskWithArgs(c, clientId, command, "<user> <group>: ")
+	case "remove-user-group":
 		PrepareTaskWithArgs(c, clientId, command, "<user> <group>: ")
 	case "enum-logons":
 		PrepareTaskSimple(c, clientId, command)
