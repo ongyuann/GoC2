@@ -6,12 +6,14 @@ package goup
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"strings"
+	"syscall"
 
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
+	"golang.org/x/sys/windows/svc/mgr"
 )
 
 type VulnService struct {
@@ -53,8 +55,52 @@ func AllChecks() (results string, err error) {
 	results += CheckAutoLogons()
 	results += CheckAutoRuns()
 	results += GetUnquotedServices()
+	results += GetModifiableServiceBinaries()
+	results += GetModifiableServices()
 	results += AlwaysInstallElevatedCheck()
+
 	return results, err
+}
+
+func GetModifiableServices() string {
+	var s *uint16
+	var resultsString string = "--- Modifiable Services ---\n"
+	h, err := windows.OpenSCManager(s, nil, windows.SC_MANAGER_ENUMERATE_SERVICE)
+	if err != nil {
+		return ""
+	}
+	svcMgr := &mgr.Mgr{}
+	svcMgr.Handle = h
+	services, _ := svcMgr.ListServices()
+	if err != nil {
+		return ""
+	}
+	for _, name := range services {
+		h, err := windows.OpenService(svcMgr.Handle, syscall.StringToUTF16Ptr(name), windows.SERVICE_CHANGE_CONFIG)
+		if err != nil {
+			continue
+		}
+		serv := &mgr.Service{}
+		serv.Handle = h
+		serv.Name = name
+		//serv, err := svcMgr.OpenService(name)
+		serviceConfig, err := serv.Config()
+		if err != nil {
+			serv.Close()
+			continue
+		}
+		data, err := json.MarshalIndent(serviceConfig, "", " ")
+		if err != nil {
+			serv.Close()
+			continue
+		}
+		resultsString += string(data)
+	}
+	svcMgr.Disconnect()
+	if resultsString == "--- Modifiable Services ---\n" {
+		resultsString += "Nothing Found\n"
+	}
+	return resultsString
 }
 
 func CheckIfDirWriteable(path string) bool {
@@ -116,7 +162,6 @@ func CheckAutoRuns() string {
 			continue
 		}
 		for _, v := range values {
-			log.Println(v)
 			val, _, err := k.GetStringValue(v)
 			if err != nil {
 				continue
@@ -185,6 +230,68 @@ func AlwaysInstallElevatedCheck() string {
 	return results
 }
 
+func GetModifiableServiceBinaries() string {
+	results := "--- Modifiable Service Binaries ---\n"
+	baseKey, err := registry.OpenKey(registry.LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Services", registry.READ)
+	if err != nil {
+		return results + "Nothing Found.\n"
+	}
+	defer baseKey.Close()
+	services, err := baseKey.ReadSubKeyNames(0)
+	if err != nil {
+		return results + "Nothing Found.\n"
+	}
+	for _, s := range services {
+		k, err := registry.OpenKey(registry.LOCAL_MACHINE, fmt.Sprintf("SYSTEM\\CurrentControlSet\\Services\\%s", s), registry.READ)
+		if err != nil {
+			continue
+		}
+		defer k.Close()
+		imagePath, _, err := k.GetStringValue("ImagePath")
+		if err != nil {
+			continue
+		}
+		path := strings.Trim(imagePath, "")
+		startType := ""
+		if path != "" && !strings.HasPrefix(path, "\"") && !strings.HasPrefix(path, "'") && strings.Contains(path[0:strings.Index(strings.ToLower(path), ".exe")+4], " ") {
+			startTypeInt, _, err := k.GetIntegerValue("Start")
+			if err != nil {
+				startTypeInt = 0
+			}
+			switch startTypeInt {
+			case 2:
+				startType = "Automatic"
+			case 3:
+				startType = "Manual"
+			case 4:
+				startType = "Disabled"
+			default:
+				startType = "Unknown"
+			}
+			executablePath := path[0 : strings.Index(strings.ToLower(path), ".exe")+4]
+			info, err := os.Stat(executablePath)
+			if err != nil {
+				continue
+			}
+			if info.Mode().Perm()&(1<<(uint(7))) == 0 {
+				continue
+			}
+			v := &VulnService{
+				ServiceName:   s,
+				StartType:     startType,
+				Executable:    executablePath,
+				ModifiableDir: executablePath,
+			}
+			data, _ := json.MarshalIndent(v, "", " ")
+			results += fmt.Sprintf("%s\n", string(data))
+		}
+	}
+	if results == "--- Modifiable Service Binaries ---\n" {
+		return results + "Nothing Found.\n"
+	}
+	return results
+}
+
 func GetUnquotedServices() string {
 	results := "--- Unquoted Services ---\n"
 	baseKey, err := registry.OpenKey(registry.LOCAL_MACHINE, "SYSTEM\\CurrentControlSet\\Services", registry.READ)
@@ -224,24 +331,33 @@ func GetUnquotedServices() string {
 				startType = "Unknown"
 			}
 			executablePath := path[0 : strings.Index(strings.ToLower(path), ".exe")+4]
-			numSpaces := len(strings.Split(executablePath, " ")) - 1
-			for x := 0; x < numSpaces; x++ {
-				path := strings.Split(executablePath, " ")[x]
-				check := path[0:strings.Index(path, "\\")] + "\\"
-				tempFile, err := os.CreateTemp(check, "__*.txt")
+			splitPath := strings.Split(executablePath, " ")
+			concatPath := make([]string, 0)
+			for i := 0; i < len(splitPath)+1; i++ {
+				concatPath = append(concatPath, strings.Join(splitPath[0:i], " "))
+			}
+			concatPath = append(concatPath, concatPath[1][0:strings.LastIndex(concatPath[1], "\\")])
+			// check permissions
+			for _, p := range concatPath {
+				info, err := os.Stat(p)
 				if err != nil {
 					continue
 				}
-				tempFile.Close()
-				os.Remove(tempFile.Name())
-				v := &VulnService{
-					ServiceName:   s,
-					StartType:     startType,
-					Executable:    executablePath,
-					ModifiableDir: check,
+				if !info.IsDir() {
+					continue
+				} else {
+					if info.Mode().Perm()&(1<<(uint(7))) == 0 {
+						continue
+					}
+					v := &VulnService{
+						ServiceName:   s,
+						StartType:     startType,
+						Executable:    executablePath,
+						ModifiableDir: p,
+					}
+					data, _ := json.MarshalIndent(v, "", " ")
+					results += fmt.Sprintf("%s\n", string(data))
 				}
-				data, _ := json.MarshalIndent(v, "", " ")
-				results += fmt.Sprintf("%s\n", string(data))
 			}
 		}
 	}
