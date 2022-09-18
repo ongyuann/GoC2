@@ -67,15 +67,17 @@ var EvasionModulesList = [...]string{
 
 var LateralMovementModulesList = [...]string{
 	"exit",
-	"port-forward",
-	"revert-port-forward",
-	"create-service",
-	"start-service",
-	"stop-service",
-	"delete-service",
-	"create-scheduled-task",
-	"execute-scheduled-task",
-	"delete-scheduled-task",
+	// removed use external dlls and custom pe load or shinject
+	//"port-forward",
+	//"revert-port-forward",
+	//"create-service",
+	//"start-service",
+	//"stop-service",
+	//"delete-service",
+	//"create-scheduled-task",
+	//"execute-scheduled-task",
+	//"delete-scheduled-task",
+	//"modify-service-binary",
 	"winrm-exec",
 	"wmi-exec",
 	"smb-exec",
@@ -87,7 +89,6 @@ var LateralMovementModulesList = [...]string{
 var PrivilegeEscalationModulesList = [...]string{
 	"exit",
 	"go-up", // sharpup for golang -> missing checks
-	"modify-service-binary",
 	"shell-history",
 	"start-keylogger",
 	"stop-keylogger",
@@ -100,7 +101,7 @@ var PersistenceModulesList = [...]string{
 	"powershell-profile",
 	"run-key",
 	"logon-script",
-	"scheduled-task",
+	//"scheduled-task",
 	"launch-items",
 	"login-items",
 	"crontab",

