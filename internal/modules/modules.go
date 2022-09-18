@@ -86,22 +86,13 @@ var LateralMovementModulesList = [...]string{
 
 var PrivilegeEscalationModulesList = [...]string{
 	"exit",
-	"go-up", // sharpup  for golang
+	"go-up", // sharpup for golang -> missing checks
+	"modify-service-binary",
 	"shell-history",
 	"start-keylogger",
 	"stop-keylogger",
 	"start-clipboard-monitor",
 	"stop-clipboard-monitor",
-
-	// SHARP UP CHECKS
-	//"modifiable-scheduled-task-file 	  // todo
-	// modifiable services reg key		  // todo
-	// modifiable services binary		  // todo
-	//"modifiable-services",              // todo
-	//"$path-hijack", // https://www.ired.team/offensive-security/privilege-escalation/environment-variable-path-interception https://github.com/GhostPack/SharpUp/blob/master/SharpUp/Checks/HijackablePaths.cs
-	// dll hijack
-	// unattended install files
-	// SHARP UP CHECKS DONE
 }
 
 var PersistenceModulesList = [...]string{
@@ -109,7 +100,6 @@ var PersistenceModulesList = [...]string{
 	"powershell-profile",
 	"run-key",
 	"logon-script",
-	//"com-hijack", // todo need something that finds one for you.
 	"scheduled-task",
 	"launch-items",
 	"login-items",
@@ -118,19 +108,13 @@ var PersistenceModulesList = [...]string{
 	"remove-user",
 	"add-user-group",
 	"remove-user-group",
-	// bashrc
-	// crontab
-	// launchd
-	// systemd
-	// "startup-folder", //todo
-	// "wmi-event-sub", // todo sektor 7
 }
 
 var EnumerationModulesList = [...]string{
 	"exit",
+	"env",
 	"enum-modules",
 	"enum-drivers",
-	"env",
 	"port-scan",
 	"subnet-scan",
 	"ifconfig",
@@ -138,10 +122,7 @@ var EnumerationModulesList = [...]string{
 	"list-services",
 	"list-ports",
 	"list-shares",
-	"enum-logons",
-	"enum-users",
-	"enum-groups",
-	"enum-domain",
+	"enum-local",
 	"screenshot",
 	"nslookup",
 	"reverse-lookup",

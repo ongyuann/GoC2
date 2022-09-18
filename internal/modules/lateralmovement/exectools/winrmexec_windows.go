@@ -76,32 +76,25 @@ func ShellCallback(operationContext uintptr, flags uint32, err *winapi.WSMAN_ERR
 }
 
 func WinRmExec(args []string) (string, error) {
-	/*log.Println(args)
-	results, err := WinRmExecuteCommand("HACKERLAB", "turtleadmin", "dawoof7123!!!", "dc01", "5985", "hostname")
-	if err != nil {
-		return "", fmt.Errorf("%s %s", results, err)
-	}
-	return results, nil
-	*/
-	// domain user pass host port command ssl
-	if len(args) < 7 {
+	//PrepareTaskWithArgs(c, clientId, command, "<Host> <Port> <Command> <SSL 1,0 >: ")
+	if len(args) < 3 {
 		return "", fmt.Errorf("Not Enough Args")
 	}
-	if args[6] == "true" || args[6] == "1" {
-		results, err := WinRmExecuteCommandSSL(args[0], args[1], args[2], args[3], args[4], args[5])
+	if args[3] == "true" || args[3] == "1" {
+		results, err := WinRmExecuteCommandSSL(args[0], args[1], args[2])
 		if err != nil {
 			return "", fmt.Errorf("%s %s", results, err)
 		}
 		return results, nil
 	}
-	results, err := WinRmExecuteCommand(args[0], args[1], args[2], args[3], args[4], args[5])
+	results, err := WinRmExecuteCommand(args[0], args[1], args[2])
 	if err != nil {
 		return "", fmt.Errorf("%s %s", results, err)
 	}
 	return results, nil
 }
 
-func WinRmExecuteCommand(domain, user, pass, host, port, command string) (string, error) {
+func WinRmExecuteCommand(host, port, command string) (string, error) {
 	var clientHandle uintptr
 	err := winapi.WSManInitialize(winapi.WSMAN_FLAG_REQUESTED_API_VERSION_1_0, &clientHandle)
 	if err != nil {
@@ -109,30 +102,10 @@ func WinRmExecuteCommand(domain, user, pass, host, port, command string) (string
 	}
 	authCreds := winapi.WSMAN_AUTHENTICATION_CREDENTIALS{}
 	authCreds.UserAccount = winapi.WSMAN_USERNAME_PASSWORD_CREDS{}
-	username, err := windows.UTF16PtrFromString(fmt.Sprintf("%s\\%s", domain, user))
-	if err != nil {
-		return results, err
-	}
-	password, err := windows.UTF16PtrFromString(pass)
-	if err != nil {
-		return results, err
-	}
-	authCreds.UserAccount.Username = username
-	authCreds.UserAccount.Password = password
-	// if no domain is supplied we need to use basic NTLM auth
-	// else we can try kerberose then fallback to NTLM
-	if domain == "" || domain == "." {
-		authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_BASIC
-		username, err = windows.UTF16PtrFromString(fmt.Sprintf("%s", user))
-		if err != nil {
-			return results, err
-		}
-		authCreds.UserAccount.Username = username
-	} else {
-		authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_NEGOTIATE
-	}
+	authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_NEGOTIATE
+	authCreds.UserAccount.Username = nil
+	authCreds.UserAccount.Password = nil
 	var session winapi.WSMAN_SESSION_HANDLE
-	//log.Println("before create session")
 	shellCall := windows.NewCallback(ShellCallback)
 	recvCall := windows.NewCallback(RecvCallback)
 	async := winapi.WSMAN_SHELL_ASYNC{}
@@ -224,7 +197,7 @@ func Cleanup(clientHandle uintptr, opHandle winapi.WSMAN_OPERATION_HANDLE, cmdHa
 	windows.CloseHandle(windows.Handle(hEvent))
 }
 
-func WinRmExecuteCommandSSL(domain, user, pass, host, port, command string) (string, error) {
+func WinRmExecuteCommandSSL(host, port, command string) (string, error) {
 	var clientHandle uintptr
 	err := winapi.WSManInitialize(winapi.WSMAN_FLAG_REQUESTED_API_VERSION_1_0, &clientHandle)
 	if err != nil {
@@ -232,23 +205,9 @@ func WinRmExecuteCommandSSL(domain, user, pass, host, port, command string) (str
 	}
 	authCreds := winapi.WSMAN_AUTHENTICATION_CREDENTIALS{}
 	authCreds.UserAccount = winapi.WSMAN_USERNAME_PASSWORD_CREDS{}
-	username, err := windows.UTF16PtrFromString(fmt.Sprintf("%s\\%s", domain, user))
-	if err != nil {
-		return results, err
-	}
-	password, err := windows.UTF16PtrFromString(pass)
-	if err != nil {
-		return results, err
-	}
-	authCreds.UserAccount.Username = username
-	authCreds.UserAccount.Password = password
-	// if no domain is supplied we need to use basic NTLM auth
-	// else we can try kerberose then fallback to NTLM
-	if domain == "" || domain == "." {
-		authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_BASIC
-	} else {
-		authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_NEGOTIATE
-	}
+	authCreds.UserAccount.Username = nil
+	authCreds.UserAccount.Password = nil
+	authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_NEGOTIATE
 	var session winapi.WSMAN_SESSION_HANDLE
 	//log.Println("before create session")
 	shellCall := windows.NewCallback(ShellCallback)

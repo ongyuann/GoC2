@@ -10,6 +10,7 @@ import (
 
 const (
 	MAX_PREFFERED_LENGTH int32 = -1
+	//MAX_PREFFERED_LENGTH uint32 = 0xFFFFFFFF
 )
 
 var (
@@ -25,7 +26,13 @@ var (
 	pNetLocalGroupDelMembers = pModNetApi32.NewProc("NetLocalGroupDelMembers")
 	pNetUserAdd              = pModNetApi32.NewProc("NetUserAdd")
 	pNetUserDel              = pModNetApi32.NewProc("NetUserDel")
+	pNetServerEnum           = pModNetApi32.NewProc("NetServerEnum")
 )
+
+type SERVER_INFO_100 struct {
+	Sv100_platform_id uint32
+	Sv100_name        *uint16
+}
 
 type USER_INFO_1 struct {
 	Name        *uint16
@@ -129,16 +136,28 @@ func NetLocalGroupEnum(server string, level uint32, bufPtr uintptr, maxLen int32
 	return true, nil
 }
 
-func NetUserEnum(server string, level uint32, filter uint32, bufPtr uintptr, maxLen int32, entriesRead *uint32, totalEntries *uint32, resumeHandle **uint32) (bool, error) {
+func NetUserEnum(server string, level uint32, filter uint32, bufPtr **windows.UserInfo10, maxLen int32, entriesRead *uint32, totalEntries *uint32, resumeHandle **uint32) (bool, error) {
 	serverNamePtr, err := syscall.UTF16PtrFromString(server)
 	if err != nil {
 		return false, err
 	}
-	res, _, err := pNetUserEnum.Call(uintptr(unsafe.Pointer(serverNamePtr)), uintptr(level), uintptr(filter), bufPtr, uintptr(maxLen), uintptr(unsafe.Pointer(entriesRead)), uintptr(unsafe.Pointer(totalEntries)), uintptr(unsafe.Pointer(resumeHandle)))
+	res, _, err := pNetUserEnum.Call(uintptr(unsafe.Pointer(serverNamePtr)), uintptr(level), uintptr(filter), uintptr(unsafe.Pointer(bufPtr)), uintptr(maxLen), uintptr(unsafe.Pointer(entriesRead)), uintptr(unsafe.Pointer(totalEntries)), uintptr(unsafe.Pointer(resumeHandle)))
 	if res != 0 {
 		return false, err
 	}
 	return true, nil
+}
+
+func NetServerEnum(level uint32, bufptr *uintptr, prefMaxLen int32, entriesRead *uint32, totalEntries *uint32, serverType uint32, domain string) error {
+	Dptr, err := windows.UTF16PtrFromString(domain)
+	if err != nil {
+		return err
+	}
+	res, _, _ := pNetServerEnum.Call(uintptr(0), uintptr(level), uintptr(unsafe.Pointer(bufptr)), uintptr(prefMaxLen), uintptr(unsafe.Pointer(entriesRead)), uintptr(unsafe.Pointer(totalEntries)), uintptr(serverType), uintptr(unsafe.Pointer(Dptr)), uintptr(0))
+	if res != 0 {
+		return fmt.Errorf("NetServerEnum Error %d", res)
+	}
+	return nil
 }
 
 /*
