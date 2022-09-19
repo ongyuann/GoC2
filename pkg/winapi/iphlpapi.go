@@ -112,7 +112,7 @@ func GetRTTAndHopCount(address string) bool {
 	addr := inet_addr(address)
 	var hopCount uint64
 	hopCount = 1
-	var maxHops uint64 = 60
+	var maxHops uint64 = 1
 	var roundtrip uint64
 	ok, _, _ := pGetRTTAndHopCount.Call(uintptr(addr), uintptr(unsafe.Pointer(&hopCount)), uintptr(maxHops), uintptr(unsafe.Pointer(&roundtrip)))
 	if ok == 0 {

