@@ -102,9 +102,11 @@ func WinRmExecuteCommand(host, port, command string) (string, error) {
 	}
 	authCreds := winapi.WSMAN_AUTHENTICATION_CREDENTIALS{}
 	authCreds.UserAccount = winapi.WSMAN_USERNAME_PASSWORD_CREDS{}
-	authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_NEGOTIATE
+	authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_KERBEROS
+	/*authCreds.AuthenticationMechanism = winapi.WSMAN_FLAG_AUTH_NEGOTIATE
 	authCreds.UserAccount.Username = nil
 	authCreds.UserAccount.Password = nil
+	*/
 	var session winapi.WSMAN_SESSION_HANDLE
 	shellCall := windows.NewCallback(ShellCallback)
 	recvCall := windows.NewCallback(RecvCallback)

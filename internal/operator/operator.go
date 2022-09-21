@@ -814,7 +814,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "ps-exec":
 		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <domain\\username> <password> <Url of binary> <command>: ")
 	case "fileless-service":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <serviceName> <command>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <serviceName> <b64powershell>: ")
 	case "subnet-scan":
 		PrepareTaskWithOneArg(c, clientId, command, "<192.168.1.0>: ")
 	case "port-scan":
@@ -883,8 +883,12 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithArgs(c, clientId, command, "<Get-ChildItem -force -something -test>: ")
 	case "enum-local":
 		PrepareTaskSimple(c, clientId, command)
-	case "modify-service-binary":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <serviceName> <serviceBinaryPath>: ")
+	//case "modify-service-binary":
+	//	PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <serviceName> <serviceBinaryPath>: ")
+	case "dotnet-check":
+		PrepareTaskSimple(c, clientId, command)
+	case "hostname":
+		PrepareTaskSimple(c, clientId, command)
 	default:
 		c.Println("Task not found.")
 	}

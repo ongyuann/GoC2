@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hirochachacha/go-smb2"
 	"golang.org/x/sys/windows"
 )
@@ -84,6 +85,8 @@ func WmiExec(args []string) (string, error) {
 	userName = userSlice[1]
 	passwordOrHash := args[2]
 	command := args[3]
+	idOut := uuid.New()
+	outFile := idOut.String()
 	binaryName, err := windows.UTF16PtrFromString("C:\\Windows\\System32\\wbem\\wmic.exe")
 	wmicArgs := make([]string, 0)
 	wmicArgs = append(wmicArgs, "C:\\Windows\\System32\\wbem\\wmic.exe")
@@ -96,7 +99,7 @@ func WmiExec(args []string) (string, error) {
 	wmicArgs = append(wmicArgs, "/c")
 	wmicArgs = append(wmicArgs, command)
 	wmicArgs = append(wmicArgs, "1>")
-	wmicArgs = append(wmicArgs, "\\\\localhost\\ADMIN$\\wmic_svc_stderr.log")
+	wmicArgs = append(wmicArgs, fmt.Sprintf("\\\\localhost\\ADMIN$\\%s.txt", outFile))
 	wmicArgs = append(wmicArgs, `2>&1"`)
 	commandLine, err := windows.UTF16PtrFromString(strings.Join(wmicArgs, " "))
 	if err != nil {
@@ -110,7 +113,7 @@ func WmiExec(args []string) (string, error) {
 	}
 	windows.WaitForSingleObject(pi.Process, windows.INFINITE)
 	time.Sleep(time.Second * 5)
-	output, err := ReadFileOnShare(node, userName, passwordOrHash, domain, "ADMIN$", "wmic_svc_stderr.log")
+	output, err := ReadFileOnShare(node, userName, passwordOrHash, domain, "ADMIN$", outFile+".txt")
 	if err != nil {
 		return "", err
 	}

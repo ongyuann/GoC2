@@ -86,4 +86,4 @@ macos: macos_server macos_cli
 
 linux: linux_server linux_cli
 
-windows: windows_malleable windows_server windows_cli
+windows: windows_malleable windows_cli windows_server 

