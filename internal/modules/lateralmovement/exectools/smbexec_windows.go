@@ -6,7 +6,6 @@ package exectools
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"syscall"
 	"time"
@@ -47,9 +46,7 @@ func CreateService(targetMachine, serviceName, commandToExec string) (string, er
 	errFile := idErr.String()
 	outFile := idOut.String()
 	serviceBinary := fmt.Sprintf("%%COMSPEC%% /Q /c echo %s ^> \\\\127.0.0.1\\C$\\%s.txt 2^>^&1 > %%TMP%%\\%s.bat & %%COMSPEC%% /Q /c %%TMP%%\\%s.bat & del %%TMP%%\\%s.bat", commandToExec, outFile, errFile, errFile, errFile)
-	log.Println(serviceBinary)
 	c.BinaryPathName = serviceBinary
-	log.Println("Creating Service!")
 	service, err := CreateServiceWithoutEscape(serviceMgr.Handle, serviceBinary, serviceName)
 	if err != nil {
 		return "", err
@@ -90,13 +87,12 @@ func SmbExec(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Println("Connected!")
-	payloadPath, err := CreateService(node, "XblManager", command)
+	payloadPath, err := CreateService(node, "GOSMBEXEC", command)
 	if err != nil {
 		return "", err
 	}
 	time.Sleep(time.Second * 5)
-	err = DeleteService(node, "XblManager")
+	err = DeleteService(node, "GOSMBEXEC")
 	if err != nil {
 		return "", err
 	}

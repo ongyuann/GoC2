@@ -399,6 +399,10 @@ func LoaderEndpoint(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Invalid Json"})
 		return
 	}
+	if len(loaderPayload.RawShellcodeBytes) > 1000000 {
+		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Payload Exceeds 1MB limit."})
+		return
+	}
 	loader, b64Loader := ConvertPwsh(loaderPayload.RawShellcodeBytes)
 	responsePayload := data.LoaderPayload{}
 	responsePayload.LoaderString = loader

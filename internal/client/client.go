@@ -376,6 +376,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	case "hostname":
 		result = basic.Hostname()
 		cmdError = nil
+	case "list-remote-services":
+		result, cmdError = exectools.ListRemoteServices(t.Args[0])
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}
