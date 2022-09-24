@@ -59,9 +59,10 @@ var ExecutionModulesList = [...]string{
 	"self-inject",
 	"raw-self-inject",
 	"spawn-inject",
+	"spawn-inject-token",
 	"spawn-inject-pipe",
 	"remote-inject",
-	"create-process-pid",
+	"create-process-token",
 	"create-process-creds",
 	"run",
 	"reverse-shell",
@@ -153,7 +154,7 @@ var ImpersonationModulesList = [...]string{
 }
 
 var BasicModulesList = [...]string{
-	"exit", "sleep", "jitter", "pwd", "cd", "rm", "cp", "mv", "ls", "cat", "touch", "ps", "hostname", "whoami", "mkdir", "rmdir", "killproc", "exit-process", "exit-thread", "shell", "download", "remote-download", "upload",
+	"info", "exit", "sleep", "jitter", "pwd", "cd", "rm", "cp", "mv", "ls", "cat", "touch", "ps", "hostname", "whoami", "mkdir", "rmdir", "killproc", "exit-process", "exit-thread", "shell", "download", "remote-download", "upload",
 	"enumeration",
 	"impersonation",
 	"persistence",

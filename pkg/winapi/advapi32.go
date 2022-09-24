@@ -3,7 +3,6 @@ package winapi
 import (
 	"log"
 	"os"
-	"runtime"
 	"syscall"
 	"unsafe"
 
@@ -134,11 +133,9 @@ func CreateProcessWithLogonW(
 	domain *uint16,
 	password *uint16,
 	logonFlags uint32,
-	applicationName *uint16,
 	commandLine *uint16,
 	creationFlags uint32,
 	environment *uint16,
-	currentDirectory *uint16,
 	startupInfo *syscall.StartupInfo,
 	processInformation *syscall.ProcessInformation) error {
 	r1, _, e1 := pCreateProcessWithLogonW.Call(
@@ -146,42 +143,21 @@ func CreateProcessWithLogonW(
 		uintptr(unsafe.Pointer(domain)),
 		uintptr(unsafe.Pointer(password)),
 		uintptr(logonFlags),
-		uintptr(unsafe.Pointer(applicationName)),
+		uintptr(0),
 		uintptr(unsafe.Pointer(commandLine)),
 		uintptr(creationFlags),
 		uintptr(unsafe.Pointer(environment)), // env
-		uintptr(unsafe.Pointer(currentDirectory)),
+		uintptr(0),
 		uintptr(unsafe.Pointer(startupInfo)),
 		uintptr(unsafe.Pointer(processInformation)))
-	runtime.KeepAlive(username)
-	runtime.KeepAlive(domain)
-	runtime.KeepAlive(password)
-	runtime.KeepAlive(applicationName)
-	runtime.KeepAlive(commandLine)
-	runtime.KeepAlive(environment)
-	runtime.KeepAlive(currentDirectory)
-	runtime.KeepAlive(startupInfo)
-	runtime.KeepAlive(processInformation)
 	if int(r1) == 0 {
 		return os.NewSyscallError("CreateProcessWithLogonW", e1)
 	}
 	return nil
 }
 
-func CreateProcessWithTokenW(hToken syscall.Handle, dwLogonFlags uint32, applicationName string, commandLine string, dwCreationFlags uint32, lpEnvironment uintptr, currentDirectory string, si *windows.StartupInfo, pi *windows.ProcessInformation) (bool, error) {
-	binaryName, err := syscall.UTF16PtrFromString(applicationName)
-	if err != nil {
-		return false, err
-	}
-	cmdLine, err := syscall.UTF16PtrFromString(commandLine)
-	if err != nil {
-		return false, err
-	}
-	dir, err := syscall.UTF16PtrFromString(currentDirectory)
-	if err != nil {
-		return false, err
-	}
-	res, _, err := pCreateProcessWithToken.Call(uintptr(hToken), uintptr(dwLogonFlags), uintptr(unsafe.Pointer(binaryName)), uintptr(unsafe.Pointer(cmdLine)), uintptr(dwCreationFlags), lpEnvironment, uintptr(unsafe.Pointer(dir)), uintptr(unsafe.Pointer(si)), uintptr(unsafe.Pointer(pi)))
+func CreateProcessWithTokenW(hToken syscall.Handle, dwLogonFlags uint32, commandLine *uint16, dwCreationFlags uint32, lpEnvironment uintptr, si *windows.StartupInfo, pi *windows.ProcessInformation) (bool, error) {
+	res, _, err := pCreateProcessWithToken.Call(uintptr(hToken), uintptr(dwLogonFlags), uintptr(0), uintptr(unsafe.Pointer(commandLine)), uintptr(dwCreationFlags), lpEnvironment, uintptr(0), uintptr(unsafe.Pointer(si)), uintptr(unsafe.Pointer(pi)))
 	if res == 0 {
 		return false, err
 	}

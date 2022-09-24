@@ -64,7 +64,16 @@ var (
 	pGetThreadContext   = pModKernel32.NewProc("GetThreadContext")
 	pSetThreadContext   = pModKernel32.NewProc("SetThreadContext")
 	pExitThread         = pModKernel32.NewProc("ExitThread")
+	pOpenThread         = pModKernel32.NewProc("OpenThread")
 )
+
+func OpenThread(dwDesiredAccess uint32, inheritHandle uint32, threadId uint32) uintptr {
+	res, _, _ := pOpenThread.Call(uintptr(dwDesiredAccess), uintptr(inheritHandle), uintptr(threadId))
+	if res == 0 {
+		return 0
+	}
+	return res
+}
 
 func ExitThread() {
 	pExitThread.Call(uintptr(0))

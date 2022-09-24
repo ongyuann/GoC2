@@ -143,7 +143,6 @@ func Unhook(localNtdllAddress windows.Handle, cleanNtdllMapping uintptr) error {
 	if !readMem {
 		return err
 	}
-	log.Println("reads fine", offsetToTextSectionClean)
 	writeMem, err := winapi.WriteProcessMemory(
 		syscall.Handle(hCurrent),
 		uintptr(offsetToTextSectionHooked),

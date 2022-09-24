@@ -319,6 +319,32 @@ func validateDonut(payload *data.DonutPayload) bool {
 }
 
 /// shellcode loaderss
+var msbuildString string = `<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Target Name="Tortuga">
+  <Turtle />
+</Target>
+<UsingTask
+  TaskName="Turtle"
+  TaskFactory="CodeTaskFactory"
+  AssemblyFile="C:\Windows\Microsoft.Net\Framework\v4.0.30319\Microsoft.Build.Tasks.v4.0.dll" >
+  <Task>
+	<Code Type="Class" Language="cs">
+	<![CDATA[
+  using System;
+  using System.Runtime.InteropServices;
+  using Microsoft.Build.Framework;
+  using Microsoft.Build.Utilities;
+  public class Turtle :  Task, ITask
+  {  
+	public override bool Execute()
+	{
+	  Console.WriteLine("TEST");
+	  return true;
+	 }
+  }]]>
+	</Code>
+  </Task>
+</UsingTask>`
 
 var pwshLoader string = `function potatoes {
 	Param ($DLL, $METHOD)

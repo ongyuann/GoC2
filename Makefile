@@ -41,7 +41,7 @@ client_windows_debug:
 	GOOS=windows go build -ldflags "-s -w" -tags windows -o bin/client.exe cmd/client/client.go
 
 client_windows_dll:
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -buildmode=c-shared -ldflags="-w -s -H=windowsgui" -o bin/clientDLL.dll cmd/clientDLL/clientDLL.go
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -buildmode=c-shared -ldflags="-w -s -H=windowsgui" -o bin/client.dll cmd/clientDLL/clientDLL.go
 
 
 client_windows:

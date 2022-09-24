@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	mrand "math/rand"
@@ -52,10 +53,21 @@ type Client struct {
 func (c *Client) ToBytes() []byte {
 	data, err := json.Marshal(c)
 	if err != nil {
-		log.Printf("Error Converting Client To Bytes: %s", err.Error())
 		return nil
 	}
 	return data
+}
+
+func (c *Client) Info() string {
+	return fmt.Sprintf("User: %s\nIntegrity: %s\nProcess: %s %d\n", c.Username, c.Integrity, c.ProcessName, c.ProcessId)
+}
+
+func (c *Client) ToString() string {
+	data, err := json.MarshalIndent(c, "", " ")
+	if err != nil {
+		return fmt.Sprintf("Error converting client to string %s", err.Error())
+	}
+	return string(data)
 }
 
 func GetPublicIp() string {

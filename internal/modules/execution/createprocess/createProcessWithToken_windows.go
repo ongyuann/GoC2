@@ -19,8 +19,7 @@ func CreateProcessWithTokenViaPid(args []string) (string, error) {
 		return "", errors.New("Not Enough Args")
 	}
 	pidStr := args[0]
-	binary := args[1]
-	binaryArgs := args[1:]
+	binaryArgsW := args[1:]
 	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
 		return "", err
@@ -41,7 +40,8 @@ func CreateProcessWithTokenViaPid(args []string) (string, error) {
 	}
 	var si windows.StartupInfo
 	var pi windows.ProcessInformation
-	res, err := winapi.CreateProcessWithTokenW(syscall.Handle(duplicatedToken), 0x00000002, binary, strings.Join(binaryArgs, " "), windows.CREATE_NO_WINDOW, uintptr(winapi.NullRef), "", &si, &pi)
+	binaryArgs := syscall.StringToUTF16Ptr(strings.Join(binaryArgsW, " "))
+	res, err := winapi.CreateProcessWithTokenW(syscall.Handle(duplicatedToken), 0x00000001, binaryArgs, windows.CREATE_NO_WINDOW, uintptr(winapi.NullRef), &si, &pi)
 	if !res {
 		return "", err
 	}
@@ -52,12 +52,10 @@ func CreateProcessWithTokenViaCreds(args []string) (string, error) {
 	domainW := args[0]
 	userW := args[1]
 	passW := args[2]
-	binaryW := args[3]
 	binaryArgsW := args[3:]
 	user := syscall.StringToUTF16Ptr(userW)
 	domain := syscall.StringToUTF16Ptr(domainW)
 	pass := syscall.StringToUTF16Ptr(passW)
-	binary := syscall.StringToUTF16Ptr(binaryW)
 	binaryArgs := syscall.StringToUTF16Ptr(strings.Join(binaryArgsW, " "))
 	startupInfo := &syscall.StartupInfo{}
 	startupInfo.ShowWindow = winapi.ShowWindow
@@ -68,8 +66,7 @@ func CreateProcessWithTokenViaCreds(args []string) (string, error) {
 	// above gives /netonly functionality.
 	creationFlags := uint32(windows.CREATE_UNICODE_ENVIRONMENT)
 	environment := winapi.ListToEnvironmentBlock(nil)
-	currentDirectory := syscall.StringToUTF16Ptr(`c:\`)
-	err := winapi.CreateProcessWithLogonW(user, domain, pass, logonFlags, binary, binaryArgs, creationFlags, environment, currentDirectory, startupInfo, processInfo)
+	err := winapi.CreateProcessWithLogonW(user, domain, pass, logonFlags, binaryArgs, creationFlags, environment, startupInfo, processInfo)
 	if err != nil {
 		return "", err
 	}
