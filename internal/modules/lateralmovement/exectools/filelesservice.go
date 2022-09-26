@@ -1,7 +1,6 @@
 package exectools
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"syscall"
@@ -42,12 +41,18 @@ func ListRemoteServices(targetMachine string) (string, error) {
 			serv.Close()
 			continue
 		}
-		data, err := json.MarshalIndent(serviceConfig, "", " ")
+		if serviceConfig.ServiceStartName == "" {
+			serv.Close()
+			continue
+		}
+		resultsString += fmt.Sprintf("SERVICE: %s\nPATH: %s\nUSER: %s\n\n", serv.Name, serviceConfig.BinaryPathName, serviceConfig.ServiceStartName)
+		/*data, err := json.MarshalIndent(serviceConfig, "", " ")
 		if err != nil {
 			serv.Close()
 			continue
 		}
 		resultsString += string(data)
+		*/
 	}
 	svcMgr.Disconnect()
 	return resultsString, nil

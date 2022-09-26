@@ -10,6 +10,7 @@ func UploadFile(fileBytes []byte, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer file.Close()
 	wrote, err := file.Write(fileBytes)
 	if err != nil {
 		return "", err

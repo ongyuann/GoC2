@@ -5,6 +5,7 @@ package listservices
 
 import (
 	"encoding/json"
+	"fmt"
 	"syscall"
 
 	"golang.org/x/sys/windows"
@@ -38,6 +39,7 @@ func ListServices() (string, error) {
 			serv.Close()
 			continue
 		}
+		resultsString += fmt.Sprintf("NAME: %s\n", name)
 		data, err := json.MarshalIndent(serviceConfig, "", " ")
 		if err != nil {
 			serv.Close()

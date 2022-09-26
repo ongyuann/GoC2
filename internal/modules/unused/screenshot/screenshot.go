@@ -7,12 +7,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image/png"
-
-	"github.com/kbinani/screenshot"
+	//"github.com/kbinani/screenshot"
 )
 
 func Screenshot() (string, error) {
-	n := screenshot.NumActiveDisplays()
+	n := screenshott.NumActiveDisplays()
 	// above func has issues
 	if n == 0 {
 		n = 1
@@ -20,8 +19,8 @@ func Screenshot() (string, error) {
 	// create zip file in memory
 	fileBuffers := make(map[string]bytes.Buffer)
 	for i := 0; i < n; i++ {
-		bounds := screenshot.GetDisplayBounds(i)
-		img, err := screenshot.CaptureRect(bounds)
+		bounds := screenshott.GetDisplayBounds(i)
+		img, err := screenshott.CaptureRect(bounds)
 		if err != nil {
 			return "", err
 		}

@@ -20,7 +20,7 @@ import (
 func ReadFileOnShare(machine, user, pass, domain, shareName, fileToRead string) (string, error) {
 	conn, err := net.Dial("tcp", fmt.Sprintf("%s:445", machine))
 	if err != nil {
-		panic(err)
+		return "", nil
 	}
 	defer conn.Close()
 	var d *smb2.Dialer

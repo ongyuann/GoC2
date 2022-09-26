@@ -86,6 +86,7 @@ var LateralMovementModulesList = [...]string{
 	"smb-exec",
 	"ps-exec",
 	"list-remote-services",
+	"list-loggedon-users",
 	"fileless-service",
 	"admin-check",
 }
@@ -127,7 +128,7 @@ var EnumerationModulesList = [...]string{
 	"list-ports",
 	"list-shares",
 	"enum-local",
-	"screenshot",
+	//"screenshot",
 	"nslookup",
 	"reverse-lookup",
 }

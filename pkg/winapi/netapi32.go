@@ -27,7 +27,27 @@ var (
 	pNetUserAdd              = pModNetApi32.NewProc("NetUserAdd")
 	pNetUserDel              = pModNetApi32.NewProc("NetUserDel")
 	pNetServerEnum           = pModNetApi32.NewProc("NetServerEnum")
+	pNetWkstaUserEnum        = pModNetApi32.NewProc("NetWkstaUserEnum")
 )
+
+func NetWkstaUserEnum(server string, bufPtr **WKSTA_USER_INFO_1, maxLen int32, entries *uint32, total *uint32) error {
+	s, err := windows.UTF16PtrFromString(server)
+	if err != nil {
+		return err
+	}
+	res, _, err := pNetWkstaUserEnum.Call(uintptr(unsafe.Pointer(s)), uintptr(1), uintptr(unsafe.Pointer(bufPtr)), uintptr(maxLen), uintptr(unsafe.Pointer(entries)), uintptr(unsafe.Pointer(total)), uintptr(0))
+	if res != 0 {
+		return err
+	}
+	return nil
+}
+
+type WKSTA_USER_INFO_1 struct {
+	Username    *uint16
+	LogonDomain *uint16
+	AuthDomains *uint16
+	LogonServer *uint16
+}
 
 type SERVER_INFO_100 struct {
 	Sv100_platform_id uint32

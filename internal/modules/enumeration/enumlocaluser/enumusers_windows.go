@@ -159,7 +159,6 @@ func EnumUsers() (string, error) {
 	var resumeHandle *uint32
 	var count uint32
 	var entries uint32
-	log.Printf("%p", buffer)
 	res, err := winapi.NetUserEnum("", 10, 0, &buffer, winapi.MAX_PREFFERED_LENGTH, &count, &entries, &resumeHandle)
 	if !res {
 		return "", err
@@ -168,7 +167,6 @@ func EnumUsers() (string, error) {
 	for x := 0; x < int(count); x++ {
 		log.Printf("%p", buffer)
 		username := windows.UTF16PtrToString(buffer.Name)
-		log.Printf("USERNAME %s\n", username)
 		results += "- " + username
 		results += "\n"
 		group, err := EnumGroupsFromUser(username)
