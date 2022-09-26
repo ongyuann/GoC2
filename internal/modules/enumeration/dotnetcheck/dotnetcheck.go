@@ -8,12 +8,13 @@ import (
 )
 
 func DotnetCheck() (string, error) {
-	var result string
+	var result string = "### DotNet Versions ### \n"
 	key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\NET Framework Setup\NDP`, registry.READ)
 	if err != nil {
 		return "", err
 	}
-	subKeys, err := key.ReadSubKeyNames(6)
+	defer key.Close()
+	subKeys, err := key.ReadSubKeyNames(10)
 	if err != nil {
 		return "", err
 	}

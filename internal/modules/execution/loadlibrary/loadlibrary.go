@@ -3,11 +3,21 @@ package loadlibrary
 import (
 	"debug/pe"
 	"fmt"
+	"strconv"
 	"unsafe"
 
 	"github.com/latortuga71/GoC2/pkg/peloader"
+	"github.com/latortuga71/GoC2/pkg/winapi"
 	"golang.org/x/sys/windows"
 )
+
+func EnumDll(pid string) (string, error) {
+	iPid, err := strconv.Atoi(pid)
+	if err != nil {
+		return "", err
+	}
+	return winapi.EnumModules(uint32(iPid))
+}
 
 func LoadDll(name string) (string, error) {
 	moduleHandle, err := windows.LoadLibrary(name)

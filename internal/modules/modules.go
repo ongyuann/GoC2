@@ -49,6 +49,7 @@ package modules
 var ExecutionModulesList = [...]string{
 	"exit",
 	"powershell",
+	"list-library",
 	"load-library",
 	"free-library",
 	"module-stomp",
@@ -60,6 +61,7 @@ var ExecutionModulesList = [...]string{
 	"raw-self-inject",
 	"spawn-inject",
 	"spawn-inject-token",
+	"spawn-inject-creds",
 	"spawn-inject-pipe",
 	"remote-inject",
 	"create-process-token",
@@ -118,7 +120,6 @@ var EnumerationModulesList = [...]string{
 	"exit",
 	"dotnet-check",
 	"env",
-	"enum-modules",
 	"enum-drivers",
 	"port-scan",
 	"subnet-scan",

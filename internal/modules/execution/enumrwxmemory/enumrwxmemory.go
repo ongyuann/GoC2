@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"unsafe"
 
+	"github.com/latortuga71/GoC2/pkg/winapi"
 	"golang.org/x/sys/windows"
 )
 
@@ -60,8 +61,13 @@ func EnumMemory() (string, error) {
 		if err != nil {
 			continue
 		}
+		var dotnetloaded string = "NOT LOADED"
+		ok, _ := winapi.CheckIfDotnetDllLoaded(procEntry.ProcessID)
+		if ok {
+			dotnetloaded = "TRUE"
+		}
 		exeName := windows.UTF16PtrToString(&procEntry.ExeFile[0])
-		results += fmt.Sprintf("PID %d EXE: %s\n", procEntry.ProcessID, exeName)
+		results += fmt.Sprintf("PID: %d EXE: %s DOTNET: %s\n", procEntry.ProcessID, exeName, dotnetloaded)
 		for {
 			err = windows.VirtualQueryEx(hProcess, offset, &mbi, unsafe.Sizeof(mbi))
 			if err != nil {

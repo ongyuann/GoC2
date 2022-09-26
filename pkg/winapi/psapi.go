@@ -2,6 +2,7 @@ package winapi
 
 import (
 	"fmt"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -53,6 +54,55 @@ func GetModuleList(pid uint32) ([]string, error) {
 		}
 	}
 	return mod, nil
+}
+
+func CheckIfDotnetDllLoaded(pid uint32) (bool, error) {
+	hProc, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION|windows.PROCESS_VM_READ, false, pid)
+	if err != nil {
+		return false, err
+	}
+	var n uint32
+	var needed uint32
+	ret, _, err := pEnumProcessModules.Call(
+		uintptr(hProc),
+		0,
+		uintptr(n),
+		uintptr(unsafe.Pointer(&needed)))
+	if ret == 0 {
+		return false, err
+	}
+	if int(ret) == 1 && needed > 0 {
+		procHandles := make([]syscall.Handle, needed)
+		procHandlesPtr := unsafe.Pointer(&procHandles[0])
+		n = needed
+		ret2, _, err := pEnumProcessModules.Call(
+			uintptr(hProc),
+			uintptr(procHandlesPtr),
+			uintptr(n),
+			uintptr(unsafe.Pointer(&needed)))
+		if ret2 == 0 {
+			return false, err
+		}
+		if int(ret2) == 1 {
+			for i := 0; uint32(i) < needed/8; i++ {
+				name := make([]uint16, 1024)
+				windows.GetModuleFileNameEx(hProc, windows.Handle(procHandles[i]), &name[0], 260) // sizof WCHAR[MAX_PATH] / sizeof(WCHAR)
+				mInfo := windows.ModuleInfo{}
+				moduleName := windows.UTF16PtrToString(&name[0])
+				err = windows.GetModuleInformation(hProc, windows.Handle(procHandles[i]), &mInfo, uint32(unsafe.Sizeof(mInfo)))
+				if err != nil {
+					continue
+				}
+				//mscoree.dll
+				if strings.Contains(moduleName, "mscor") {
+					windows.CloseHandle(hProc)
+					return true, nil
+				}
+			}
+		}
+	}
+	windows.CloseHandle(hProc)
+	return false, nil
 }
 
 func EnumModules(pid uint32) (string, error) {

