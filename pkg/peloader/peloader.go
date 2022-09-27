@@ -5,6 +5,7 @@ import (
 	"debug/pe"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"syscall"
@@ -637,7 +638,169 @@ func (r *RawPe) LoadPEFromMemory() (string, error) {
 		windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
 		return "", errors.New("Provided Invalid PE Type")
 	}
-	return fmt.Sprintf("[+] Memory Base Address %p Entry Point Address %p", unsafe.Pointer(r.allocatedMemoryBase), entryPointPtr), nil
+	return fmt.Sprintf("[+] Loaded PE at memory Base Address %p PE Entry Point Address %p", unsafe.Pointer(r.allocatedMemoryBase), entryPointPtr), nil
+}
+
+func (r *RawPe) LoadPEFromMemoryPipe() (string, error) {
+	buffer := bytes.NewBuffer(r.rawData)
+	peFile, err := pe.NewFile(bytes.NewReader(buffer.Bytes()))
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("Failed to load pe file %v", err))
+	}
+	r.peStruct = peFile
+	if !DosHeaderCheck(r.rawData) {
+		return "", errors.New("Dos header check failed.")
+	}
+	// only support 64 bit.
+	r.peHeaders = r.peStruct.OptionalHeader.(*pe.OptionalHeader64)
+	if (r.peHeaders.SectionAlignment & 1) != 0 {
+		return "", errors.New("Unknown Alignment error.")
+	}
+	//alignedImgSize := AlignValueUp(r.peHeaders.SizeOfImage, uint32(PAGE_SIZE))
+	r.alignedImageSize = AlignValueUp(r.peHeaders.SizeOfImage, uint32(PAGE_SIZE))
+	if r.alignedImageSize != AlignValueUp(r.peStruct.Sections[r.peStruct.NumberOfSections-1].VirtualAddress+r.peStruct.Sections[r.peStruct.NumberOfSections-1].Size, uint32(PAGE_SIZE)) {
+		return "", errors.New("Failed to align image.")
+	}
+	// allocating memory chunk for image.
+	var baseAddressOfMemoryAlloc uintptr
+	prefBaseAddr := uintptr(r.peHeaders.ImageBase)
+	baseAddressOfMemoryAlloc, err = winapi.VirtualAlloc(uintptr(r.peHeaders.ImageBase), r.alignedImageSize, winapi.MEM_RESERVE|winapi.MEM_COMMIT, winapi.PAGE_READWRITE)
+	if baseAddressOfMemoryAlloc == 0 {
+		//log.Println("Failed to allocate at preffered base address...Attempting to allocate anywhere else.")
+		baseAddressOfMemoryAlloc, err = winapi.VirtualAlloc(uintptr(0), r.alignedImageSize, winapi.MEM_RESERVE|winapi.MEM_COMMIT, winapi.PAGE_READWRITE)
+		if err != nil {
+			return "", errors.New(fmt.Sprintf("Failed to allocate memory at random location %v", err))
+		}
+	}
+	// base memory chunk allocated.
+	peHead, err := winapi.VirtualAlloc(baseAddressOfMemoryAlloc, r.peHeaders.SizeOfHeaders, winapi.MEM_COMMIT, winapi.PAGE_READWRITE)
+	if peHead == 0 {
+		return "", errors.New(fmt.Sprintf("Failed to commit memory for pe headers %v", err))
+	}
+	// committed memory for pe headers.
+	var wrote uint32
+	if ok, err := winapi.WriteProcessMemory(syscall.Handle(winapi.GetCurrentProcess()), peHead, uintptr(unsafe.Pointer(&r.rawData[0])), r.peHeaders.SizeOfHeaders, &wrote); !ok {
+		return "", errors.New(fmt.Sprintf("Failed to write pe headers to memory %v", err))
+	}
+	// wrote pe headers to memory
+	r.peHeaders.ImageBase = uint64(baseAddressOfMemoryAlloc)
+	// updating pe header to reflect base address (just incase it changed)
+	// now you commit sections in the memory block and copy the sections to the proper locations
+	memSections, err := CopySectionsToMemory(r.peStruct, r.peHeaders, baseAddressOfMemoryAlloc)
+	if err != nil {
+		return "", err
+	}
+	//base relocations if preferred base address is doesnt match where we allocated memory
+	baseAddressDiff := uint64(baseAddressOfMemoryAlloc - prefBaseAddr)
+	if baseAddressDiff != 0 {
+		if err := BaseRelocate(baseAddressDiff, baseAddressOfMemoryAlloc, *r.peHeaders); err != nil {
+			return "", errors.New(fmt.Sprintf("Failed to base relocate %v", err))
+		}
+	}
+	err = CreateImportAddressTable(r.peHeaders, baseAddressOfMemoryAlloc)
+	if err != nil {
+		return "", err
+	}
+	err = FinalizeSections(r.peStruct, r.peHeaders, baseAddressOfMemoryAlloc, memSections)
+	if err != nil {
+		return "", err
+	}
+	err = ExecuteTLS(r.peHeaders, baseAddressOfMemoryAlloc)
+	if err != nil {
+		return "", err
+	}
+	RemoveDOSHeader(baseAddressOfMemoryAlloc)
+	entryPointPtr := unsafe.Pointer(uintptr(r.peHeaders.AddressOfEntryPoint) + baseAddressOfMemoryAlloc)
+	r.peEntry = uintptr(entryPointPtr)
+	r.allocatedMemoryBase = baseAddressOfMemoryAlloc
+	var result string = ""
+	switch r.peType {
+	case Dll:
+		exportEntryPoint, err := FindExportedFunction(r.peHeaders, baseAddressOfMemoryAlloc, r.exportedFunction)
+		if err != nil {
+			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
+			return "", err
+		}
+		// preparing
+		f, err := ioutil.TempFile("", "*.log")
+		if err != nil {
+			log.Fatal(err)
+		}
+		name := f.Name()
+		f.Close() // close file.
+		hFile := winapi.CreateFile(name, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, 0, windows.OPEN_ALWAYS, windows.FILE_ATTRIBUTE_NORMAL, 0)
+		if hFile == 0 {
+			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
+			return "", fmt.Errorf("Failed to get handle to tmp file")
+		}
+		err = winapi.SetStdHandle(windows.STD_OUTPUT_HANDLE, windows.Handle(hFile))
+		if err != nil {
+			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
+			return "", err
+		}
+		//
+		hThread, err := winapi.CreateThread(0, 0, uintptr(exportEntryPoint), 0, 0, nil)
+		if err != nil {
+			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
+			return "", err
+		}
+		// clean memory once it exits thread.
+		windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
+		windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
+		windows.CloseHandle(windows.Handle(hFile))
+		hStdout, err := windows.GetStdHandle(windows.STD_OUTPUT_HANDLE)
+		windows.SetStdHandle(windows.STD_OUTPUT_HANDLE, hStdout)
+		data, err := ioutil.ReadFile(name)
+		if err != nil {
+			return "", err
+		}
+		os.Remove(name)
+		result = string(data)
+		break
+	case Exe:
+		// calling exe entry point no args
+		// we are not patching exitThread so when exes exit they will crash process
+		// exe needs to call exitThread before exiting and needs to be run in seperate thread
+		// in this goroutine we run the entry point in another thread. wait for it to finish then free the memory
+		f, err := ioutil.TempFile("", "*.log")
+		if err != nil {
+			log.Fatal(err)
+		}
+		name := f.Name()
+		f.Close() // close file.
+		hFile := winapi.CreateFile(name, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, 0, windows.OPEN_ALWAYS, windows.FILE_ATTRIBUTE_NORMAL, 0)
+		if hFile == 0 {
+			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
+			return "", fmt.Errorf("Failed to get handle to tmp file")
+		}
+		err = winapi.SetStdHandle(windows.STD_OUTPUT_HANDLE, windows.Handle(hFile))
+		if err != nil {
+			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
+			return "", err
+		}
+		hThread, err := winapi.CreateThread(0, 0, uintptr(entryPointPtr), 0, 0, nil)
+		if err != nil {
+			windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
+			return "", err
+		}
+		// clean memory once it exits thread.
+		windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
+		windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
+		windows.CloseHandle(windows.Handle(hFile))
+		hStdout, err := windows.GetStdHandle(windows.STD_OUTPUT_HANDLE)
+		windows.SetStdHandle(windows.STD_OUTPUT_HANDLE, hStdout)
+		data, err := ioutil.ReadFile(name)
+		if err != nil {
+			return "", err
+		}
+		os.Remove(name)
+		result = string(data)
+		break
+	default:
+		windows.VirtualFree(uintptr(r.allocatedMemoryBase), 0, winapi.MEM_RELEASE)
+		return "", errors.New("Provided Invalid PE Type")
+	}
+	return fmt.Sprintf("%s", result), nil
 }
 
 func (r *RawPe) FreePeFromMemory() error {

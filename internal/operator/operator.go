@@ -849,6 +849,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithOneArg(c, clientId, command, "<pid>: ")
 	case "load-custom-pe":
 		PrepareShellcodeTask(c, clientId, command, "<Local PE to send> <exe,dll> <exportNameIfDLL>: ")
+	case "load-custom-pe-pipe":
+		PrepareShellcodeTask(c, clientId, command, "<Local PE to send> <exe,dll> <exportNameIfDLL>: ")
 	case "enum-drivers":
 		PrepareTaskSimple(c, clientId, command)
 	case "list-library":
