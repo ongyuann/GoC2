@@ -41,6 +41,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/evasion/patchsysmon"
 	"github.com/latortuga71/GoC2/internal/modules/evasion/unhookntdll"
 	"github.com/latortuga71/GoC2/internal/modules/execution/createprocess"
+	"github.com/latortuga71/GoC2/internal/modules/execution/enumhandles"
 	"github.com/latortuga71/GoC2/internal/modules/execution/enumrwxmemory"
 	"github.com/latortuga71/GoC2/internal/modules/execution/loadlibrary"
 	"github.com/latortuga71/GoC2/internal/modules/execution/memfdcreate"
@@ -389,6 +390,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = processinjection.SpawnInjectWithCreds(t.File, t.Args)
 	case "info":
 		result, cmdError = Client.Info(), nil
+	case "enum-handles":
+		result, cmdError = enumhandles.GetHandles()
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}

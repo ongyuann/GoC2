@@ -22,8 +22,8 @@ func ShowCaves(memBuffer []byte, regionSize uintptr, baseAddress uintptr) string
 		if memBuffer[x] != 0 && inEmpty {
 			inEmpty = false
 			end = x
-			if (end - start) > 500 {
-				results += fmt.Sprintf("\t\t %p %p %d\n", unsafe.Pointer(baseAddress+uintptr(start)), unsafe.Pointer(baseAddress+uintptr(end)), end-start)
+			if (end - start) > 1000 { // show only things greater than 1kb
+				results += fmt.Sprintf("\t\t %p %p %d bytes\n", unsafe.Pointer(baseAddress+uintptr(start)), unsafe.Pointer(baseAddress+uintptr(end)), end-start)
 			}
 			start = 0
 			end = 0
@@ -31,8 +31,8 @@ func ShowCaves(memBuffer []byte, regionSize uintptr, baseAddress uintptr) string
 		}
 	}
 	end = x
-	if (end - start) > 500 {
-		results += fmt.Sprintf("\t\t %p %p %d\n", unsafe.Pointer(baseAddress+uintptr(start)), unsafe.Pointer(baseAddress+uintptr(end)), end-start)
+	if (end - start) > 1000 { // show only things greater than 1kb
+		results += fmt.Sprintf("\t\t %p %p %d bytes\n", unsafe.Pointer(baseAddress+uintptr(start)), unsafe.Pointer(baseAddress+uintptr(end)), end-start)
 	}
 	return results
 }
@@ -61,13 +61,13 @@ func EnumMemory() (string, error) {
 		if err != nil {
 			continue
 		}
-		var dotnetloaded string = "NOT LOADED"
+		var dotnetloaded string = ""
 		ok, _ := winapi.CheckIfDotnetDllLoaded(procEntry.ProcessID)
 		if ok {
-			dotnetloaded = "TRUE"
+			dotnetloaded = "DOTNET: LOADED"
 		}
 		exeName := windows.UTF16PtrToString(&procEntry.ExeFile[0])
-		results += fmt.Sprintf("PID: %d EXE: %s DOTNET: %s\n", procEntry.ProcessID, exeName, dotnetloaded)
+		results += fmt.Sprintf("PID: %d EXE: %s %s\n", procEntry.ProcessID, exeName, dotnetloaded)
 		for {
 			err = windows.VirtualQueryEx(hProcess, offset, &mbi, unsafe.Sizeof(mbi))
 			if err != nil {

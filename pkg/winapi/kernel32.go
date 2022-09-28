@@ -27,46 +27,57 @@ const (
 )
 
 var (
-	pModKernel32        = syscall.NewLazyDLL("kernel32.dll")
-	pGetModuleHandleW   = pModKernel32.NewProc("GetModuleHandleW")
-	pGetCurrentProcess  = pModKernel32.NewProc("GetCurrentProcess")
-	pOpenProcess        = pModKernel32.NewProc("OpenProcess")
-	pGetProcessHeap     = pModKernel32.NewProc("GetProcessHeap")
-	pHeapCreate         = pModKernel32.NewProc("HeapCreate")
-	pCreateProcess      = pModKernel32.NewProc("CreateProcess")
-	pGetExitCodeThread  = pModKernel32.NewProc("GetExitCodeThread")
-	pVirtualProtect     = pModKernel32.NewProc("VirtualProtect")
-	pVirtualProtectEx   = pModKernel32.NewProc("VirtualProtectEx")
-	pVirtualFreeEx      = pModKernel32.NewProc("VirtualFreeEx")
-	pVirtualFree        = pModKernel32.NewProc("VirtualFree")
-	pReadFile           = pModKernel32.NewProc("ReadFile")
-	pHeapAlloc          = pModKernel32.NewProc("HeapAlloc")
-	pHeapFree           = pModKernel32.NewProc("HeapFree")
-	pHeapDestroy        = pModKernel32.NewProc("HeapDestroy")
-	pVirtualAlloc       = pModKernel32.NewProc("VirtualAlloc")
-	pVirtualAllocEx     = pModKernel32.NewProc("VirtualAllocEx")
-	pWriteProcessMemory = pModKernel32.NewProc("WriteProcessMemory")
-	pReadProcessMemory  = pModKernel32.NewProc("ReadProcessMemory")
-	pCreateThread       = pModKernel32.NewProc("CreateThread")
-	pCreateRemoteThread = pModKernel32.NewProc("CreateRemoteThread")
-	pWriteFile          = pModKernel32.NewProc("WriteFile")
-	pWaitNamedPipe      = pModKernel32.NewProc("WaitNamedPipeW")
-	pCreateFile         = pModKernel32.NewProc("CreateFileW")
-	pFlushFileBuffers   = pModKernel32.NewProc("FlushFileBuffers")
-	PGlobalLock         = pModKernel32.NewProc("GlobalLock")
-	PGlobalUnlock       = pModKernel32.NewProc("GlobalUnlock")
-	pIsBadReadPtr       = pModKernel32.NewProc("IsBadReadPtr")
-	pCreatePipe         = pModKernel32.NewProc("CreatePipe")
-	pSetStdHandle       = pModKernel32.NewProc("SetStdHandle")
-	pGetProcAddress     = pModKernel32.NewProc("GetProcAddress")
-	pCreateEventW       = pModKernel32.NewProc("CreateEventW")
-	pSetEvent           = pModKernel32.NewProc("SetEvent")
-	pGetThreadContext   = pModKernel32.NewProc("GetThreadContext")
-	pSetThreadContext   = pModKernel32.NewProc("SetThreadContext")
-	pExitThread         = pModKernel32.NewProc("ExitThread")
-	pOpenThread         = pModKernel32.NewProc("OpenThread")
+	pModKernel32          = syscall.NewLazyDLL("kernel32.dll")
+	pGetModuleHandleW     = pModKernel32.NewProc("GetModuleHandleW")
+	pGetCurrentProcess    = pModKernel32.NewProc("GetCurrentProcess")
+	pOpenProcess          = pModKernel32.NewProc("OpenProcess")
+	pGetProcessHeap       = pModKernel32.NewProc("GetProcessHeap")
+	pHeapCreate           = pModKernel32.NewProc("HeapCreate")
+	pCreateProcess        = pModKernel32.NewProc("CreateProcess")
+	pGetExitCodeThread    = pModKernel32.NewProc("GetExitCodeThread")
+	pVirtualProtect       = pModKernel32.NewProc("VirtualProtect")
+	pVirtualProtectEx     = pModKernel32.NewProc("VirtualProtectEx")
+	pVirtualFreeEx        = pModKernel32.NewProc("VirtualFreeEx")
+	pVirtualFree          = pModKernel32.NewProc("VirtualFree")
+	pReadFile             = pModKernel32.NewProc("ReadFile")
+	pHeapAlloc            = pModKernel32.NewProc("HeapAlloc")
+	pHeapReAlloc          = pModKernel32.NewProc("HeapReAlloc")
+	pHeapFree             = pModKernel32.NewProc("HeapFree")
+	pHeapDestroy          = pModKernel32.NewProc("HeapDestroy")
+	pVirtualAlloc         = pModKernel32.NewProc("VirtualAlloc")
+	pVirtualAllocEx       = pModKernel32.NewProc("VirtualAllocEx")
+	pWriteProcessMemory   = pModKernel32.NewProc("WriteProcessMemory")
+	pReadProcessMemory    = pModKernel32.NewProc("ReadProcessMemory")
+	pCreateThread         = pModKernel32.NewProc("CreateThread")
+	pCreateRemoteThread   = pModKernel32.NewProc("CreateRemoteThread")
+	pWriteFile            = pModKernel32.NewProc("WriteFile")
+	pWaitNamedPipe        = pModKernel32.NewProc("WaitNamedPipeW")
+	pCreateFile           = pModKernel32.NewProc("CreateFileW")
+	pFlushFileBuffers     = pModKernel32.NewProc("FlushFileBuffers")
+	PGlobalLock           = pModKernel32.NewProc("GlobalLock")
+	PGlobalUnlock         = pModKernel32.NewProc("GlobalUnlock")
+	pIsBadReadPtr         = pModKernel32.NewProc("IsBadReadPtr")
+	pCreatePipe           = pModKernel32.NewProc("CreatePipe")
+	pSetStdHandle         = pModKernel32.NewProc("SetStdHandle")
+	pGetProcAddress       = pModKernel32.NewProc("GetProcAddress")
+	pCreateEventW         = pModKernel32.NewProc("CreateEventW")
+	pSetEvent             = pModKernel32.NewProc("SetEvent")
+	pGetThreadContext     = pModKernel32.NewProc("GetThreadContext")
+	pSetThreadContext     = pModKernel32.NewProc("SetThreadContext")
+	pExitThread           = pModKernel32.NewProc("ExitThread")
+	pOpenThread           = pModKernel32.NewProc("OpenThread")
+	pGetFileType          = pModKernel32.NewProc("GetFileType")
+	pGetProcessIdOfThread = pModKernel32.NewProc("GetProcessIdOfThread")
 )
 
+func GetProcessIdOfThread(handle uintptr) uint32 {
+	res, _, _ := pGetProcessIdOfThread.Call(handle)
+	return uint32(res)
+}
+func GetFileType(handle uintptr) uint32 {
+	res, _, _ := pGetFileType.Call(handle)
+	return uint32(res)
+}
 func OpenThread(dwDesiredAccess uint32, inheritHandle uint32, threadId uint32) uintptr {
 	res, _, _ := pOpenThread.Call(uintptr(dwDesiredAccess), uintptr(inheritHandle), uintptr(threadId))
 	if res == 0 {
@@ -281,6 +292,14 @@ func HeapCreate(flOptions uint32, dwInitialSz uint32, dwMaximumSz uint32) (uintp
 		return 0, err
 	}
 	return heap, nil
+}
+
+func HeapReAlloc(hHeap syscall.Handle, dwFlags uint32, lpMem uintptr, dwBytes uint32) (uintptr, error) {
+	res, _, err := pHeapReAlloc.Call(uintptr(hHeap), uintptr(dwFlags), lpMem, uintptr(dwBytes))
+	if res == 0 {
+		return 0, err
+	}
+	return res, nil
 }
 
 func HeapAlloc(hHeap syscall.Handle, dwFlags uint32, dwBytes uint32) (uintptr, error) {

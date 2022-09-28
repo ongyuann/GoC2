@@ -53,6 +53,7 @@ var ExecutionModulesList = [...]string{
 	"load-library",
 	"free-library",
 	"module-stomp",
+	"enum-handles",
 	"enum-rwx-memory",
 	"remote-inject-stealth",
 	"load-custom-pe",
