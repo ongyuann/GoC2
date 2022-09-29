@@ -255,7 +255,6 @@ func FindExportedFunction(peHeader *pe.OptionalHeader64, memoryStart uintptr, ex
 	exportDirectory := dataDirectory[0] // export directory is the zero index
 	exports := (*IMAGE_EXPORT_DIRECTORY)(unsafe.Pointer(memoryStart + uintptr(exportDirectory.VirtualAddress)))
 	if exports.NumberOfNames == 0 || exports.NumberOfFunctions == 0 {
-		log.Println("Nothing Exported.")
 		return 0, nil
 	}
 	// loop over address of names to find the name
@@ -528,8 +527,7 @@ func RemoveDOSHeader(baseAddress uintptr) {
 }
 
 func (r *RawPe) LoadPEFromMemory() (string, error) {
-	buffer := bytes.NewBuffer(r.rawData)
-	peFile, err := pe.NewFile(bytes.NewReader(buffer.Bytes()))
+	peFile, err := pe.NewFile(bytes.NewReader(r.rawData))
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Failed to load pe file %v", err))
 	}
@@ -642,8 +640,7 @@ func (r *RawPe) LoadPEFromMemory() (string, error) {
 }
 
 func (r *RawPe) LoadPEFromMemoryPipe() (string, error) {
-	buffer := bytes.NewBuffer(r.rawData)
-	peFile, err := pe.NewFile(bytes.NewReader(buffer.Bytes()))
+	peFile, err := pe.NewFile(bytes.NewReader(r.rawData))
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Failed to load pe file %v", err))
 	}

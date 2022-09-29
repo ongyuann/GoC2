@@ -1536,7 +1536,6 @@ func DumpSecretsRemote(args []string) (string, error) {
 	domain = args[1]
 	user = args[2]
 	pass = args[3]
-	log.Println(host, domain, user, pass)
 	err := LogonUserToAccessSVM(domain, user, pass)
 	if err != nil {
 

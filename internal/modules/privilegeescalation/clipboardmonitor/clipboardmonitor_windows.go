@@ -5,7 +5,6 @@ package clipboardmonitor
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"syscall"
 	"time"
@@ -98,7 +97,6 @@ func StartClipboardMonitor() {
 	className := "clipboardListener"
 	instance, err := winapi.GetModuleHandle("")
 	if err != nil {
-		log.Println(err)
 		return
 	}
 	wcx := winapi.WNDCLASSEXW{
@@ -108,7 +106,6 @@ func StartClipboardMonitor() {
 	}
 	wcx.Size = uint32(unsafe.Sizeof(wcx))
 	if _, err = winapi.RegisterClassEx(&wcx); err != nil {
-		log.Println(err)
 		return
 	}
 	WindowHandle, err = winapi.CreateWindow(
@@ -124,21 +121,18 @@ func StartClipboardMonitor() {
 		instance,
 	)
 	if err != nil {
-		log.Println(err)
 		return
 	}
 	for {
 		msg := winapi.MSG{}
 		gotMessage, err := winapi.GetMessage(&msg, 0, 0, 0)
 		if err != nil {
-			log.Println(err)
 			return
 		}
 		if gotMessage {
 			winapi.TranslateMessage(&msg)
 			winapi.DispatchMessage(&msg)
 		} else {
-			log.Println("Exiting window loop")
 			break
 		}
 	}

@@ -1,7 +1,6 @@
 package winapi
 
 import (
-	"log"
 	"syscall"
 	"unsafe"
 )
@@ -189,17 +188,14 @@ func NtOpenSection(
 	r0, _, _ := pNtOpenSection.Call(uintptr(unsafe.Pointer(SectionHandle)),
 		uintptr(DesiredAccess),
 		uintptr(unsafe.Pointer(ObjectAttributes)))
-	log.Println(uint32(r0))
 	return uint32(r0)
 }
 
 func NtProtectVirtualMemory(hProcess uintptr, baseAddr uintptr, bytesToProtect *uintptr, newProt uint32, oldProt *uint32) error {
 	ntstatus, _, _ := pNtProtectVirtualMemory.Call(hProcess, uintptr(unsafe.Pointer(&baseAddr)), uintptr(unsafe.Pointer(bytesToProtect)), uintptr(newProt), uintptr(unsafe.Pointer(oldProt)))
 	if ntstatus != 0 {
-		log.Printf("%x", ntstatus)
 		return syscall.GetLastError()
 	}
-	log.Println("nt prot worked")
 	return nil
 }
 

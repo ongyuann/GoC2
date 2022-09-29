@@ -2,7 +2,6 @@ package enumhandles
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -26,6 +25,7 @@ const (
 
 func GetHandles() (string, error) {
 	// get all handles
+	var results string
 	var handleInfoSize = uint32(0x1000)
 	hHeap, err := winapi.HeapCreate(0, handleInfoSize*4, 0)
 	if err != nil {
@@ -50,34 +50,33 @@ func GetHandles() (string, error) {
 	}
 	// should have enough memory now.
 	handleInformation := (*winapi.SystemHandleInformationT)(unsafe.Pointer(handleInfo))
-	fmt.Printf("TOTAL HANDLES %d\n", handleInformation.Count)
 	handle := handleInformation.Handles[0]
 	handleAddress := uintptr(unsafe.Pointer(&handleInformation.Handles[0]))
 	var dupeHandle uintptr
+	var hProcess syscall.Handle
 	for i := 0; i < int(handleInformation.Count); i++ {
 		// will need to increase handleInformation.Handles address by size of struct
 		//fmt.Printf("Handle Pid %d\n", handle.UniqueProcessId)
-		hProcess, err := winapi.OpenProcess(windows.PROCESS_DUP_HANDLE|syscall.PROCESS_QUERY_INFORMATION|windows.PROCESS_VM_READ, 0, uint32(handle.UniqueProcessId))
+		hProcess, err = winapi.OpenProcess(windows.PROCESS_DUP_HANDLE|syscall.PROCESS_QUERY_INFORMATION|windows.PROCESS_VM_READ, 0, uint32(handle.UniqueProcessId))
 		if err != nil {
 			handleAddress += 24                                                       // move pointer over by size of struct
 			handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
-			//fmt.Printf("Failed to get handle moving pointer.\n")
 			continue
 		}
 		if ntsuccess := winapi.NtDuplicateObject(uintptr(hProcess), uintptr(handle.HandleValue), uintptr(winapi.GetCurrentProcess()), &dupeHandle, 0, 0, winapi.DUPLICATE_SAME_ACCESS); ntsuccess != 0 {
+			windows.CloseHandle(windows.Handle(dupeHandle))
 			windows.CloseHandle(windows.Handle(hProcess))
 			handleAddress += 24                                                       // move pointer over by size of struct
 			handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
-			//fmt.Printf("Failed to duplicate object moving pointer.\n")
 			continue
 		}
 		//query object type
 		objectTypeInfo, err := winapi.HeapAlloc(syscall.Handle(hHeap), 0x8, 0x1000)
 		if err != nil {
+			windows.CloseHandle(windows.Handle(dupeHandle))
 			windows.CloseHandle(windows.Handle(hProcess))
 			handleAddress += 24                                                       // move pointer over by size of struct
 			handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
-			//fmt.Printf("Failed to alloc memory\n")
 			continue
 		}
 		if ntsuccess := winapi.NtQueryObject(dupeHandle, ObjectTypeInformation, (*byte)(unsafe.Pointer(objectTypeInfo)), 0x1000, nil); ntsuccess != 0 {
@@ -85,7 +84,6 @@ func GetHandles() (string, error) {
 			windows.CloseHandle(windows.Handle(hProcess))
 			handleAddress += 24                                                       // move pointer over by size of struct
 			handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
-			//fmt.Printf("Failed to query object\n")
 			continue
 		}
 		objectTypeInformation := (*winapi.ObjectTypeInformationT)(unsafe.Pointer(objectTypeInfo))
@@ -95,7 +93,14 @@ func GetHandles() (string, error) {
 			winapi.HeapFree(hHeap, 0, objectTypeInfo)
 			handleAddress += 24                                                       // move pointer over by size of struct
 			handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
-			//fmt.Printf("object is filtered\n")
+			continue
+		}
+		if handle.GrantedAccess == 0x0012019f {
+			windows.CloseHandle(windows.Handle(dupeHandle))
+			windows.CloseHandle(windows.Handle(hProcess))
+			winapi.HeapFree(hHeap, 0, objectTypeInfo)
+			handleAddress += 24                                                       // move pointer over by size of struct
+			handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
 			continue
 		}
 		if fileType, _ := windows.GetFileType(windows.Handle(dupeHandle)); fileType == windows.FILE_TYPE_PIPE {
@@ -104,7 +109,6 @@ func GetHandles() (string, error) {
 			winapi.HeapFree(hHeap, 0, objectTypeInfo)
 			handleAddress += 24                                                       // move pointer over by size of struct
 			handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
-			//fmt.Printf("skipping pipe\n")
 			continue
 		}
 		objectNameInfo, err := winapi.HeapAlloc(syscall.Handle(hHeap), 0x8, 0x1000)
@@ -114,9 +118,9 @@ func GetHandles() (string, error) {
 			winapi.HeapFree(hHeap, 0, objectTypeInfo)
 			handleAddress += 24                                                       // move pointer over by size of struct
 			handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
-			//fmt.Printf("failed to alloc memory for object name info")
 			continue
 		}
+		//////////////////////
 		var returnLength uint32
 		result := winapi.NtQueryObject(dupeHandle, ObjectNameInformation, (*byte)(unsafe.Pointer(objectNameInfo)), 0x1000, &returnLength)
 		//fmt.Printf("result -> %x %d\n", result, returnLength)
@@ -128,17 +132,44 @@ func GetHandles() (string, error) {
 				winapi.HeapFree(hHeap, 0, objectTypeInfo)
 				handleAddress += 24                                                       // move pointer over by size of struct
 				handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
-				fmt.Printf("failed to alloc memory for object name info")
 				continue
+			} else {
+				if ntsuccess := winapi.NtQueryObject(dupeHandle, ObjectNameInformation, (*byte)(unsafe.Pointer(objectNameInfo)), returnLength, &returnLength); ntsuccess != 0 {
+					pid, _ := windows.GetProcessId(windows.Handle(hProcess))
+					typeName := windows.UTF16PtrToString(objectTypeInformation.TypeName.Buffer)
+					results += fmt.Sprintf("PID: %d VALUE: 0x%x HANDLE OBJECT: %x ACCESS: 0x%x TYPE: %s OBJECT NAME: ??? TPID: ??? TEXE: ???\n", pid, handle.HandleValue, handle.Object, handle.GrantedAccess, typeName)
+					winapi.HeapFree(hHeap, 0, objectNameInfo)
+					winapi.HeapFree(hHeap, 0, objectTypeInfo)
+					windows.CloseHandle(windows.Handle(dupeHandle))
+					windows.CloseHandle(windows.Handle(hProcess))
+					handleAddress += 24                                                       // move pointer over by size of struct
+					handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
+					continue
+				}
 			}
-			if ntsuccess := winapi.NtQueryObject(dupeHandle, ObjectNameInformation, (*byte)(unsafe.Pointer(objectNameInfo)), returnLength, &returnLength); ntsuccess != 0 {
-				//fmt.Printf("-> %x\n", ntsuccess)
-				//fmt.Printf("only able to get type name")
-				pid, _ := windows.GetProcessId(windows.Handle(hProcess))
-				typeName := windows.UTF16PtrToString(objectTypeInformation.TypeName.Buffer)
-				fmt.Printf("PID: %d HANDLE VALUE: 0x%x HANDLE OBJECT: %x ACCESS: 0x%x TYPE: %s\n", pid, handle.HandleValue, handle.Object, handle.GrantedAccess, typeName)
-				winapi.HeapFree(hHeap, 0, objectNameInfo)
+		}
+		//fmt.Printf("GOT TO OBJECT NAME SECTION\n!")
+		// cast buffer to unicode string
+		objectName := (*winapi.UnicodeString)(unsafe.Pointer(objectNameInfo))
+		// check if its a file type and weed out .dll files
+		// here we check what type it is to get process handle or thread handle
+		exeName := make([]uint16, windows.MAX_PATH)
+		err = windows.GetModuleBaseName(windows.Handle(hProcess), 0, &exeName[0], windows.MAX_PATH)
+		if err != nil {
+			winapi.HeapFree(hHeap, 0, objectTypeInfo)
+			winapi.HeapFree(hHeap, 0, objectNameInfo)
+			windows.CloseHandle(windows.Handle(dupeHandle))
+			windows.CloseHandle(windows.Handle(hProcess))
+			handleAddress += 24                                                       // move pointer over by size of struct
+			handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
+			continue
+		}
+		typeName := windows.UTF16PtrToString(objectTypeInformation.TypeName.Buffer)
+		if typeName == "File" {
+			if !FilterFiles(objectName.Buffer) {
+				// skipping dlls
 				winapi.HeapFree(hHeap, 0, objectTypeInfo)
+				winapi.HeapFree(hHeap, 0, objectNameInfo)
 				windows.CloseHandle(windows.Handle(dupeHandle))
 				windows.CloseHandle(windows.Handle(hProcess))
 				handleAddress += 24                                                       // move pointer over by size of struct
@@ -146,27 +177,38 @@ func GetHandles() (string, error) {
 				continue
 			}
 		}
-		//fmt.Printf("GOT TO OBJECT NAME SECTION\n!")
-		// cast buffer to unicode string
-		objectName := (*winapi.UnicodeString)(unsafe.Pointer(objectNameInfo))
-		// here we check what type it is to get process handle or thread handle
-		exeName := make([]uint16, windows.MAX_PATH)
-		err = windows.GetModuleBaseName(windows.Handle(hProcess), 0, &exeName[0], windows.MAX_PATH)
-		if err != nil {
-			log.Fatal(err)
-		}
 		exeNameStr := windows.UTF16PtrToString(&exeName[0])
-		typeName := windows.UTF16PtrToString(objectTypeInformation.TypeName.Buffer)
 		var targetPid uint32
 		targetPidPtr := make([]uint16, windows.MAX_PATH)
 		var targetPidStr string = "???"
+		pid, _ := windows.GetProcessId(windows.Handle(hProcess))
+		//////////////////////////////////
 		if typeName == "Process" {
 			targetPid, _ = windows.GetProcessId(windows.Handle(dupeHandle))
+			// handle to own process skipping.
+			if targetPid == pid {
+				winapi.HeapFree(hHeap, 0, objectTypeInfo)
+				winapi.HeapFree(hHeap, 0, objectNameInfo)
+				windows.CloseHandle(windows.Handle(dupeHandle))
+				windows.CloseHandle(windows.Handle(hProcess))
+				handleAddress += 24                                                       // move pointer over by size of struct
+				handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
+				continue
+			}
+			// only check for full access
+			if handle.GrantedAccess != 0x1fffff {
+				winapi.HeapFree(hHeap, 0, objectTypeInfo)
+				winapi.HeapFree(hHeap, 0, objectNameInfo)
+				windows.CloseHandle(windows.Handle(dupeHandle))
+				windows.CloseHandle(windows.Handle(hProcess))
+				handleAddress += 24                                                       // move pointer over by size of struct
+				handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
+				continue
+			}
 			if ok := winapi.GetProcessImageFileNameW(dupeHandle, &targetPidPtr[0], windows.MAX_PATH); ok != 0 {
 				trimmed := winapi.PathFindFileNameW(&targetPidPtr[0])
 				targetPidStr = windows.UTF16PtrToString(trimmed)
-				// check if target pid is same as exeNameStr if so just continue we dont care about handles to ourselfs.
-				if targetPidStr == exeNameStr {
+				if strings.ToLower(targetPidStr) == strings.ToLower(exeNameStr) {
 					winapi.HeapFree(hHeap, 0, objectTypeInfo)
 					winapi.HeapFree(hHeap, 0, objectNameInfo)
 					windows.CloseHandle(windows.Handle(dupeHandle))
@@ -179,39 +221,65 @@ func GetHandles() (string, error) {
 		}
 		if typeName == "Thread" {
 			targetPid = winapi.GetProcessIdOfThread(dupeHandle)
+			// handle to own process skipping.
+			if targetPid == pid {
+				winapi.HeapFree(hHeap, 0, objectTypeInfo)
+				winapi.HeapFree(hHeap, 0, objectNameInfo)
+				windows.CloseHandle(windows.Handle(dupeHandle))
+				windows.CloseHandle(windows.Handle(hProcess))
+				handleAddress += 24                                                       // move pointer over by size of struct
+				handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
+				continue
+			}
+			// only check for full access
+			if handle.GrantedAccess != 0x1fffff {
+				winapi.HeapFree(hHeap, 0, objectTypeInfo)
+				winapi.HeapFree(hHeap, 0, objectNameInfo)
+				windows.CloseHandle(windows.Handle(dupeHandle))
+				windows.CloseHandle(windows.Handle(hProcess))
+				handleAddress += 24                                                       // move pointer over by size of struct
+				handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
+				continue
+			}
 			tmpProc, err := windows.OpenProcess(windows.PROCESS_DUP_HANDLE|windows.PROCESS_QUERY_INFORMATION, false, targetPid)
 			if err != nil {
+				winapi.HeapFree(hHeap, 0, objectTypeInfo)
+				winapi.HeapFree(hHeap, 0, objectNameInfo)
+				windows.CloseHandle(windows.Handle(dupeHandle))
+				windows.CloseHandle(windows.Handle(hProcess))
+				handleAddress += 24                                                       // move pointer over by size of struct
+				handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
+				continue
 			} else {
 				if ok := winapi.GetProcessImageFileNameW(uintptr(tmpProc), &targetPidPtr[0], windows.MAX_PATH); ok != 0 {
 					trimmed := winapi.PathFindFileNameW(&targetPidPtr[0])
 					targetPidStr = windows.UTF16PtrToString(trimmed)
-					// check if target pid is same as exeNameStr if so just continue we dont care about handles to ourselfs.
-					if targetPidStr == exeNameStr {
-						winapi.HeapFree(hHeap, 0, objectTypeInfo)
-						winapi.HeapFree(hHeap, 0, objectNameInfo)
-						windows.CloseHandle(windows.Handle(dupeHandle))
-						windows.CloseHandle(windows.Handle(hProcess))
-						handleAddress += 24                                                       // move pointer over by size of struct
-						handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
-						continue
-					}
+				}
+				windows.CloseHandle(tmpProc)
+				if strings.ToLower(targetPidStr) == strings.ToLower(exeNameStr) {
+					winapi.HeapFree(hHeap, 0, objectTypeInfo)
+					winapi.HeapFree(hHeap, 0, objectNameInfo)
+					windows.CloseHandle(windows.Handle(dupeHandle))
+					windows.CloseHandle(windows.Handle(hProcess))
+					handleAddress += 24                                                       // move pointer over by size of struct
+					handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
+					continue
 				}
 			}
 		}
+		///////////////
 		if objectName.Length > 0 {
-			pid, _ := windows.GetProcessId(windows.Handle(hProcess))
 			objName := windows.UTF16PtrToString(objectName.Buffer)
-			if targetPid == 0 {
-				fmt.Printf("PID: %d EXE: %s HANDLE VALUE: 0x%x  ACCESS: 0x%x TYPE: %s OBJECT NAME: %s\n", pid, exeNameStr, handle.HandleValue, handle.GrantedAccess, typeName, objName)
+			if typeName == "Process" || typeName == "Thread" {
+				results += fmt.Sprintf("PID: %d EXE: %s VALUE: 0x%x  ACCESS: 0x%x TYPE: %s OBJECT NAME: %s TPID: %d TEXE: %s\n", pid, exeNameStr, handle.HandleValue, handle.GrantedAccess, typeName, objName, targetPid, targetPidStr)
 			} else {
-				fmt.Printf("PID: %d EXE: %s HANDLE VALUE: 0x%x  ACCESS: 0x%x TYPE: %s OBJECT NAME: %s TPID: %d TEXE: %s\n", pid, exeNameStr, handle.HandleValue, handle.GrantedAccess, typeName, objName, targetPid, targetPidStr)
+				results += fmt.Sprintf("PID: %d EXE: %s VALUE: 0x%x  ACCESS: 0x%x TYPE: %s OBJECT NAME: %s \n", pid, exeNameStr, handle.HandleValue, handle.GrantedAccess, typeName, objName)
 			}
 		} else {
-			pid, _ := windows.GetProcessId(windows.Handle(hProcess))
-			if targetPid == 0 {
-				fmt.Printf("PID: %d EXE: %s HANDLE VALUE: 0x%x  ACCESS: 0x%x TYPE: %s\n", pid, exeNameStr, handle.HandleValue, handle.GrantedAccess, typeName)
+			if typeName == "Process" || typeName == "Thread" {
+				results += fmt.Sprintf("PID: %d EXE: %s VALUE: 0x%x  ACCESS: 0x%x TYPE: %s TPID: %d TEXE: %s\n", pid, exeNameStr, handle.HandleValue, handle.GrantedAccess, typeName, targetPid, targetPidStr)
 			} else {
-				fmt.Printf("PID: %d EXE: %s HANDLE VALUE: 0x%x ACCESS: 0x%x TYPE: %s TPID: %d TEXE: %s\n", pid, exeNameStr, handle.HandleValue, handle.GrantedAccess, typeName, targetPid, targetPidStr)
+				results += fmt.Sprintf("PID: %d EXE: %s VALUE: 0x%x  ACCESS: 0x%x TYPE: %s\n", pid, exeNameStr, handle.HandleValue, handle.GrantedAccess, typeName)
 			}
 		}
 		winapi.HeapFree(hHeap, 0, objectTypeInfo)
@@ -222,8 +290,28 @@ func GetHandles() (string, error) {
 		handle = *(*winapi.SystemHandleTableEntry)(unsafe.Pointer(handleAddress)) // dereference pointer and copy data to handle
 		// loop end
 	}
+	windows.CloseHandle(windows.Handle(dupeHandle))
+	windows.CloseHandle(windows.Handle(hProcess))
 	winapi.HeapFree(hHeap, 0, handleInfo)
-	return "", nil
+	return results, nil
+}
+
+func FilterFiles(name *uint16) bool {
+	n := windows.UTF16PtrToString(name)
+	if !strings.Contains(n, ".") {
+		// if directory return false
+		return false
+	}
+	if strings.HasSuffix(n, ".dll") {
+		return false
+	}
+	if strings.HasSuffix(n, ".mui") {
+		return false
+	}
+	if strings.HasSuffix(n, ".ttf") {
+		return false
+	}
+	return true
 }
 
 func FilterObjectTypes(name *uint16) bool {
@@ -231,6 +319,7 @@ func FilterObjectTypes(name *uint16) bool {
 	/*if strings.Contains(n, "Directory") {
 		return true
 	}*/
+
 	/*if strings.Contains(n, "File") {
 		return true
 	}*/

@@ -153,7 +153,6 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	*/
 	err = json.Unmarshal(m.MessageData, t)
 	if err != nil {
-		log.Printf("Error Handling Task\n")
 		return err, nil
 	}
 	switch t.Command {
@@ -663,7 +662,7 @@ func ClientReceiveHandler(client *data.Client) {
 			*/
 		default:
 		}
-		//debug.FreeOSMemory()
+		debug.FreeOSMemory()
 	}
 	runtime.UnlockOSThread()
 }

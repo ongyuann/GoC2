@@ -168,7 +168,6 @@ func UnhookNtdll() (string, error) {
 	flags := uint32(windows.PAGE_READONLY | 0x1000000)
 	hMap, err := windows.CreateFileMapping(hFile, sanil, flags, 0, 0, nil)
 	if hMap == 0 {
-		log.Println(syscall.GetLastError())
 		windows.CloseHandle(hFile)
 		return "", err
 	}

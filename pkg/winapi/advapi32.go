@@ -1,7 +1,6 @@
 package winapi
 
 import (
-	"log"
 	"os"
 	"syscall"
 	"unsafe"
@@ -42,13 +41,11 @@ func LookupPrivilegeDisplayName(systemName string, lpName string) (string, error
 	var languageId uint32
 	_, _, err = pLookupPrivilegeDisplayName.Call(uintptr(unsafe.Pointer(sysnamePtr)), uintptr(unsafe.Pointer(namePtr)), uintptr(0), uintptr(unsafe.Pointer(&nameSize)), uintptr(unsafe.Pointer(&languageId)))
 	if nameSize == 0 {
-		log.Println(err)
 		return "", err
 	}
 	nameBuffer := make([]uint16, nameSize)
 	res, _, err := pLookupPrivilegeDisplayName.Call(uintptr(unsafe.Pointer(sysnamePtr)), uintptr(unsafe.Pointer(namePtr)), uintptr(unsafe.Pointer(&nameBuffer[0])), uintptr(unsafe.Pointer(&nameSize)), uintptr(unsafe.Pointer(&languageId)))
 	if res == 0 {
-		log.Println(err)
 		return "", err
 	}
 	return windows.UTF16PtrToString(&nameBuffer[0]), nil

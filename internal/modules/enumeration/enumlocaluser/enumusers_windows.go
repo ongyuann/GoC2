@@ -5,7 +5,6 @@ package enumlocaluser
 
 import (
 	"fmt"
-	"log"
 	"unsafe"
 
 	"github.com/latortuga71/GoC2/pkg/winapi"
@@ -23,7 +22,6 @@ type GroupUsers0 struct {
 }
 
 func EnumLocal() string {
-	log.Println("ENUM LOCAL CALLED")
 	var results string
 	domain, err := EnumDomain()
 	if err != nil {
@@ -165,7 +163,6 @@ func EnumUsers() (string, error) {
 	}
 	var start *windows.UserInfo10 = buffer
 	for x := 0; x < int(count); x++ {
-		log.Printf("%p", buffer)
 		username := windows.UTF16PtrToString(buffer.Name)
 		results += "- " + username
 		results += "\n"
@@ -187,14 +184,9 @@ func EnumDomainServers() (string, error) {
 	var entries uint32
 	err := winapi.NetServerEnum(100, &buffer, winapi.MAX_PREFFERED_LENGTH, &count, &entries, 0xFFFFFFFF, "hackerlab")
 	if err != nil {
-		log.Println(err)
 		return "", err
 	}
-	log.Println(count)
-	log.Println(entries)
 	for x := 0; x < int(count); x++ {
-		serverEntry := (*winapi.SERVER_INFO_100)(unsafe.Pointer(buffer))
-		log.Println(windows.UTF16PtrToString(serverEntry.Sv100_name))
 		buffer = (buffer + 8) // move pointer over?
 	}
 	winapi.NetApiBufferFree(buffer)

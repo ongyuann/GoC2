@@ -6,6 +6,7 @@ package listservices
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"syscall"
 
 	"golang.org/x/sys/windows"
@@ -14,7 +15,8 @@ import (
 
 func ListServices() (string, error) {
 	var s *uint16
-	var resultsString string
+	//var resultsString string
+	var resultsString strings.Builder
 	h, err := windows.OpenSCManager(s, nil, windows.SC_MANAGER_ENUMERATE_SERVICE)
 	if err != nil {
 		return "", err
@@ -25,6 +27,7 @@ func ListServices() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	var data []byte
 	for _, name := range services {
 		h, err := windows.OpenService(svcMgr.Handle, syscall.StringToUTF16Ptr(name), windows.SERVICE_QUERY_CONFIG|windows.SC_MANAGER_ENUMERATE_SERVICE)
 		if err != nil {
@@ -39,14 +42,17 @@ func ListServices() (string, error) {
 			serv.Close()
 			continue
 		}
-		resultsString += fmt.Sprintf("NAME: %s\n", name)
-		data, err := json.MarshalIndent(serviceConfig, "", " ")
+		//resultsString += fmt.Sprintf("NAME: %s\n", name)
+		resultsString.WriteString(fmt.Sprintf("NAME: %s\n", name))
+		data, err = json.MarshalIndent(serviceConfig, "", " ")
 		if err != nil {
 			serv.Close()
 			continue
 		}
-		resultsString += string(data)
+		//resultsString += fmt.Sprintf(string(data))
+		resultsString.WriteString(string(data))
 	}
 	svcMgr.Disconnect()
-	return resultsString, nil
+	//return resultsString, nil
+	return resultsString.String(), nil
 }

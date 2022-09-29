@@ -3,7 +3,6 @@ package powershellprofile
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 )
 
@@ -13,7 +12,6 @@ func PowershellProfilePersistence(powershellCommand string) (string, error) {
 	path := fmt.Sprintf("%s%s\\Documents\\WindowsPowerShell\\profile.ps1", c, p)
 	_, err := os.Stat(path)
 	if !errors.Is(err, os.ErrNotExist) {
-		log.Println("Appending")
 		file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			return "", err

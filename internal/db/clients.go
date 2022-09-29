@@ -1,7 +1,6 @@
 package db
 
 import (
-	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -102,7 +101,6 @@ func (db *ClientDB) SetClientJitter(uuid string, jitter string) bool {
 	if client, ok := db.Database[uuid]; ok {
 		j, err := strconv.Atoi(strings.Split(jitter, "\n")[0])
 		if err != nil {
-			log.Println(err)
 			return false
 		}
 		client.Jitter = j
@@ -202,6 +200,5 @@ func (db *ClientDB) SendTask(uuid string, data []byte) bool {
 		}
 		return true
 	}
-	log.Printf("client not found\n")
 	return false
 }
