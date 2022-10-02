@@ -847,6 +847,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareShellcodeTask(c, clientId, command, "<localFile> <fakeProcessName>: ")
 	case "dump-credential-mgr":
 		PrepareTaskWithOneArg(c, clientId, command, "<pid>: ")
+	case "load-custom-coff":
+		PrepareShellcodeTask(c, clientId, command, "<Local COFF to send>: ")
 	case "load-custom-pe":
 		PrepareShellcodeTask(c, clientId, command, "<Local PE to send> <exe,dll> <exportNameIfDLL>: ")
 	case "load-custom-pe-pipe":
@@ -903,6 +905,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithOneArg(c, clientId, command, "<remoteMachine>: ")
 	case "enum-handles":
 		PrepareTaskSimple(c, clientId, command)
+
 	default:
 		c.Println("Task not found.")
 	}

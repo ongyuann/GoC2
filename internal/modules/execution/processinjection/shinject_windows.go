@@ -16,6 +16,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/latortuga71/GoC2/pkg/coffloader"
 	"github.com/latortuga71/GoC2/pkg/peloader"
 	"github.com/latortuga71/GoC2/pkg/rawapi"
 	"github.com/latortuga71/GoC2/pkg/winapi"
@@ -758,6 +759,10 @@ func LoadPEPipe(shellcode []byte, args []string) (string, error) {
 		return "", err
 	}
 	return output, nil
+}
+
+func LoadCOFF(shellcode []byte) (string, error) {
+	return coffloader.ParseCoff(shellcode)
 }
 
 func LoadPE(shellcode []byte, args []string) (string, error) {

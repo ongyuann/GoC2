@@ -56,6 +56,7 @@ var ExecutionModulesList = [...]string{
 	"enum-handles",
 	"enum-rwx-memory",
 	"remote-inject-stealth",
+	"load-custom-coff",
 	"load-custom-pe",
 	"load-custom-pe-pipe",
 	"memfd_create",
