@@ -159,7 +159,7 @@ var ImpersonationModulesList = [...]string{
 }
 
 var BasicModulesList = [...]string{
-	"info", "exit", "sleep", "jitter", "pwd", "cd", "rm", "cp", "mv", "ls", "cat", "touch", "ps", "hostname", "whoami", "mkdir", "rmdir", "killproc", "exit-process", "exit-thread", "shell", "download", "remote-download", "upload",
+	"test", "info", "exit", "sleep", "jitter", "pwd", "cd", "rm", "cp", "mv", "ls", "cat", "touch", "ps", "hostname", "whoami", "mkdir", "rmdir", "killproc", "exit-process", "exit-thread", "shell", "download", "remote-download", "upload",
 	"enumeration",
 	"impersonation",
 	"persistence",

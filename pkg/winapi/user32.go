@@ -15,6 +15,7 @@ var (
 	pGetMonitorInfo      = pModUser32.NewProc("GetMonitorInfoW")
 	pEnumDisplaySettings = pModUser32.NewProc("EnumDisplaySettingsW")
 	pEnumChildWindows    = pModUser32.NewProc("EnumChildWindows")
+	pShowWindow          = pModUser32.NewProc("ShowWindow")
 
 	pSetWindowsHookExW             = pModUser32.NewProc("SetWindowsHookExW")
 	pGetForegroundWindow           = pModUser32.NewProc("GetForegroundWindow")
@@ -97,6 +98,10 @@ type MSG struct {
 	LParam  uintptr
 	Time    uint32
 	Pt      POINT
+}
+
+func ShowWindowW(hWindow uintptr, nCmdShow uint32) {
+	pShowWindow.Call(hWindow, uintptr(nCmdShow))
 }
 
 func SendMessage(handle, val1, val2, val3 uintptr) {

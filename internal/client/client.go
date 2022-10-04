@@ -32,6 +32,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/listports"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/listservices"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/listshares"
+	"github.com/latortuga71/GoC2/internal/modules/testing"
 
 	//"github.com/latortuga71/GoC2/internal/modules/enumeration/screenshot"
 	"github.com/latortuga71/GoC2/internal/modules/evasion/cleareventlog"
@@ -393,6 +394,8 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = Client.Info(), nil
 	case "enum-handles":
 		result, cmdError = enumhandles.GetHandles()
+	case "test":
+		result, cmdError = testing.Test()
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}

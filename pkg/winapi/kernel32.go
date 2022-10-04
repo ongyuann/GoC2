@@ -28,6 +28,8 @@ const (
 
 var (
 	pModKernel32          = syscall.NewLazyDLL("kernel32.dll")
+	pAllocConsole         = pModKernel32.NewProc("AllocConsole")
+	pGetConsoleWindow     = pModKernel32.NewProc("GetConsoleWindow")
 	pGetModuleHandleW     = pModKernel32.NewProc("GetModuleHandleW")
 	pGetCurrentProcess    = pModKernel32.NewProc("GetCurrentProcess")
 	pOpenProcess          = pModKernel32.NewProc("OpenProcess")
@@ -68,7 +70,35 @@ var (
 	pOpenThread           = pModKernel32.NewProc("OpenThread")
 	pGetFileType          = pModKernel32.NewProc("GetFileType")
 	pGetProcessIdOfThread = pModKernel32.NewProc("GetProcessIdOfThread")
+	pPeekNamedPipe        = pModKernel32.NewProc("PeekNamedPipe")
+	pAttachConsole        = pModKernel32.NewProc("AttachConsole")
 )
+
+func AttachConsole(pid uint32) error {
+	ok, _, err := pAttachConsole.Call(uintptr(pid))
+	if ok == 0 {
+		return err
+	}
+	return nil
+}
+
+func AllocConsole() (uintptr, error) {
+	b, _, err := pAllocConsole.Call()
+	return b, err
+}
+func GetConsoleWindow() uintptr {
+	r, _, _ := pGetConsoleWindow.Call()
+	return r
+}
+
+func PeekNamedPipe(hPipe uintptr, lpBuffer *uintptr, bufferSz uint32, lpBytesRead *uint32, lpTotalBytesAvail *uint32, lpBytesLeft *uint32) (bool, error) {
+	b, _, err := pPeekNamedPipe.Call(hPipe, uintptr(unsafe.Pointer(lpBuffer)), uintptr(bufferSz), uintptr(unsafe.Pointer(lpBytesRead)), uintptr(unsafe.Pointer(lpTotalBytesAvail)), uintptr(unsafe.Pointer(lpBytesLeft)))
+	if b == 0 {
+		return false, err
+	}
+	return true, nil
+
+}
 
 func GetProcessIdOfThread(handle uintptr) uint32 {
 	res, _, _ := pGetProcessIdOfThread.Call(handle)
@@ -187,7 +217,7 @@ func SetStdHandle(nStdHandle uint32, nHandle windows.Handle) error {
 }
 
 func CreatePipe(hReadPipe uintptr, hWritePipe uintptr, lpPipeAttributes uintptr, nSize uint32) error {
-	r, _, err := pCreateFile.Call(uintptr(unsafe.Pointer(&hReadPipe)), uintptr(unsafe.Pointer(&hWritePipe)), lpPipeAttributes, uintptr(nSize))
+	r, _, err := pCreatePipe.Call(uintptr(unsafe.Pointer(&hReadPipe)), uintptr(unsafe.Pointer(&hWritePipe)), lpPipeAttributes, uintptr(nSize))
 	if r == 0 {
 		return err
 	}
@@ -323,12 +353,12 @@ func ReadProcessMemory(hProcess syscall.Handle, lpBaseAddress uintptr, lpBuffer 
 	return true, nil
 }
 
-func ReadFile(handle syscall.Handle, lpBuffer uintptr, bytesToRead uint32, numberOfBytesRead *uint32, lpOverlapped uintptr) bool {
-	result, _, _ := pWriteFile.Call(uintptr(handle), lpBuffer, uintptr(bytesToRead), uintptr(unsafe.Pointer(numberOfBytesRead)), lpOverlapped)
+func ReadFile(handle syscall.Handle, lpBuffer uintptr, bytesToRead uint32, numberOfBytesRead *uint32, lpOverlapped uintptr) (bool, error) {
+	result, _, err := pWriteFile.Call(uintptr(handle), lpBuffer, uintptr(bytesToRead), uintptr(unsafe.Pointer(numberOfBytesRead)), lpOverlapped)
 	if result == 0 {
-		return false
+		return false, err
 	}
-	return true
+	return true, nil
 }
 
 func WriteFile(handle syscall.Handle, lpBuffer uintptr, bytesToWrite uint32, numberOfBytesWritten *uint32, lpOverlapped uintptr) bool {

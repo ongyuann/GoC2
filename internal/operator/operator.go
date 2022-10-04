@@ -905,7 +905,8 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithOneArg(c, clientId, command, "<remoteMachine>: ")
 	case "enum-handles":
 		PrepareTaskSimple(c, clientId, command)
-
+	case "test":
+		PrepareTaskSimple(c, clientId, command)
 	default:
 		c.Println("Task not found.")
 	}

