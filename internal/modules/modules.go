@@ -58,7 +58,6 @@ var ExecutionModulesList = [...]string{
 	"remote-inject-stealth",
 	"load-custom-coff",
 	"load-custom-pe",
-	"load-custom-pe-pipe",
 	"memfd_create",
 	"self-inject",
 	"raw-self-inject",
@@ -121,9 +120,11 @@ var PersistenceModulesList = [...]string{
 
 var EnumerationModulesList = [...]string{
 	"exit",
+	"console-check",
 	"dotnet-check",
 	"env",
 	"enum-drivers",
+	"enum-local",
 	"port-scan",
 	"subnet-scan",
 	"ifconfig",
@@ -131,7 +132,6 @@ var EnumerationModulesList = [...]string{
 	"list-services",
 	"list-ports",
 	"list-shares",
-	"enum-local",
 	//"screenshot",
 	"nslookup",
 	"reverse-lookup",
@@ -159,7 +159,7 @@ var ImpersonationModulesList = [...]string{
 }
 
 var BasicModulesList = [...]string{
-	"test", "info", "exit", "sleep", "jitter", "pwd", "cd", "rm", "cp", "mv", "ls", "cat", "touch", "ps", "hostname", "whoami", "mkdir", "rmdir", "killproc", "exit-process", "exit-thread", "shell", "download", "remote-download", "upload",
+	"info", "exit", "sleep", "jitter", "pwd", "cd", "rm", "cp", "mv", "ls", "cat", "touch", "ps", "hostname", "whoami", "mkdir", "rmdir", "killproc", "exit-process", "exit-thread", "shell", "download", "remote-download", "upload",
 	"enumeration",
 	"impersonation",
 	"persistence",

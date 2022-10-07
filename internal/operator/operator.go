@@ -851,8 +851,6 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareShellcodeTask(c, clientId, command, "<Local COFF to send>: ")
 	case "load-custom-pe":
 		PrepareShellcodeTask(c, clientId, command, "<Local PE to send> <exe,dll> <exportNameIfDLL>: ")
-	case "load-custom-pe-pipe":
-		PrepareShellcodeTask(c, clientId, command, "<Local PE to send> <exe,dll> <exportNameIfDLL>: ")
 	case "enum-drivers":
 		PrepareTaskSimple(c, clientId, command)
 	case "list-library":
@@ -905,7 +903,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 		PrepareTaskWithOneArg(c, clientId, command, "<remoteMachine>: ")
 	case "enum-handles":
 		PrepareTaskSimple(c, clientId, command)
-	case "test":
+	case "console-check":
 		PrepareTaskSimple(c, clientId, command)
 	default:
 		c.Println("Task not found.")

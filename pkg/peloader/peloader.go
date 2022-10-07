@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"syscall"
 	"unsafe"
@@ -733,28 +732,39 @@ func (r *RawPe) LoadPEFromMemoryPipe() (string, error) {
 			r.FreePeFromMemory()
 			return "", err
 		}
-		/*hWnd := winapi.GetConsoleWindow()
-		if hWnd == 0 {
-			hThread, err := winapi.CreateThread(0, 0, uintptr(entryPointPtr), 0, 0, nil)
-			if err != nil {
-				r.FreePeFromMemory()
-				return "", err
-			}
-			windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
+		f, err := ioutil.TempFile("", "*.log")
+		if err != nil {
 			r.FreePeFromMemory()
-			return fmt.Sprintf("Process Has No Console Allocated Not Able To Capture Output."), nil
-		}*/
-		ogStdout, NewStdout := winapi.CaptureStdout()
-		hThread, err := winapi.CreateThread(0, 0, uintptr(exportEntryPoint), 0, 0, nil)
+			return "", err
+		}
+		name := f.Name()
+		f.Close() // close file.
+		hFile := winapi.CreateFile(name, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, 0, windows.OPEN_ALWAYS, windows.FILE_ATTRIBUTE_NORMAL, 0)
+		if hFile == 0 {
+			r.FreePeFromMemory()
+			return "", fmt.Errorf("Failed to get handle to tmp file")
+		}
+		err = winapi.SetStdHandle(windows.STD_OUTPUT_HANDLE, windows.Handle(hFile))
+		if err != nil {
+			r.FreePeFromMemory()
+			return "", err
+		}
+		hThread, err := winapi.CreateThread(0, 0, exportEntryPoint, 0, 0, nil)
 		if err != nil {
 			r.FreePeFromMemory()
 			return "", err
 		}
 		windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
-		// clean memory once it exits thread.
-		winapi.RevertStdout(ogStdout, NewStdout)
-		result = winapi.GetStdoutBuffer()
 		r.FreePeFromMemory()
+		windows.CloseHandle(windows.Handle(hFile))
+		hStdout, err := windows.GetStdHandle(windows.STD_OUTPUT_HANDLE)
+		windows.SetStdHandle(windows.STD_OUTPUT_HANDLE, hStdout)
+		data, err := ioutil.ReadFile(name)
+		if err != nil {
+			return "", err
+		}
+		os.Remove(name)
+		result = string(data)
 		fmt.Println("Cleaned up now exiting.")
 		break
 	case Exe:
@@ -762,55 +772,43 @@ func (r *RawPe) LoadPEFromMemoryPipe() (string, error) {
 		// we are not patching exitThread so when exes exit they will crash process
 		// exe needs to call exitThread before exiting and needs to be run in seperate thread
 		// in this goroutine we run the entry point in another thread. wait for it to finish then free the memory
-		// no stdout try using a file
-		hWnd := winapi.GetConsoleWindow()
-		if hWnd == 0 {
-			f, err := ioutil.TempFile("", "*.log")
-			if err != nil {
-				log.Fatal(err)
-			}
-			name := f.Name()
-			f.Close() // close file.
-			hFile := winapi.CreateFile(name, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, 0, windows.OPEN_ALWAYS, windows.FILE_ATTRIBUTE_NORMAL, 0)
-			if hFile == 0 {
-				r.FreePeFromMemory()
-				return "", fmt.Errorf("Failed to get handle to tmp file")
-			}
-			err = winapi.SetStdHandle(windows.STD_OUTPUT_HANDLE, windows.Handle(hFile))
-			if err != nil {
-				r.FreePeFromMemory()
-				return "", err
-			}
-			hThread, err := winapi.CreateThread(0, 0, uintptr(entryPointPtr), 0, 0, nil)
-			if err != nil {
-				r.FreePeFromMemory()
-				return "", err
-			}
-			windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
+		// may not work if there is no console aka injected into gui app
+		//result, err = winapi.ExecuteFunctionSaveOutputConsole(entryPointPtr)
+		f, err := ioutil.TempFile("", "*.log")
+		if err != nil {
 			r.FreePeFromMemory()
-			windows.CloseHandle(windows.Handle(hFile))
-			hStdout, err := windows.GetStdHandle(windows.STD_OUTPUT_HANDLE)
-			windows.SetStdHandle(windows.STD_OUTPUT_HANDLE, hStdout)
-			data, err := ioutil.ReadFile(name)
-			if err != nil {
-				return "", err
-			}
-			os.Remove(name)
-			result = string(data)
-			return fmt.Sprintf("TMP FILE PE STDOUT: %s\n", result), nil
+			return "", err
 		}
-		ogStdout, NewStdout := winapi.CaptureStdout()
+		name := f.Name()
+		f.Close() // close file.
+		hFile := winapi.CreateFile(name, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, 0, windows.OPEN_ALWAYS, windows.FILE_ATTRIBUTE_NORMAL, 0)
+		if hFile == 0 {
+			r.FreePeFromMemory()
+			return "", fmt.Errorf("Failed to get handle to tmp file")
+		}
+		err = winapi.SetStdHandle(windows.STD_OUTPUT_HANDLE, windows.Handle(hFile))
+		if err != nil {
+			r.FreePeFromMemory()
+			return "", err
+		}
 		hThread, err := winapi.CreateThread(0, 0, uintptr(entryPointPtr), 0, 0, nil)
 		if err != nil {
 			r.FreePeFromMemory()
 			return "", err
 		}
 		windows.WaitForSingleObject(windows.Handle(hThread), windows.INFINITE)
-		// clean memory once it exits thread.
-		winapi.RevertStdout(ogStdout, NewStdout)
-		result = winapi.GetStdoutBuffer()
 		r.FreePeFromMemory()
+		windows.CloseHandle(windows.Handle(hFile))
+		hStdout, err := windows.GetStdHandle(windows.STD_OUTPUT_HANDLE)
+		windows.SetStdHandle(windows.STD_OUTPUT_HANDLE, hStdout)
+		data, err := ioutil.ReadFile(name)
+		if err != nil {
+			return "", err
+		}
+		os.Remove(name)
+		result = string(data)
 		fmt.Println("Cleaned up now exiting.")
+		break
 	default:
 		r.FreePeFromMemory()
 		return "", errors.New("Provided Invalid PE Type")

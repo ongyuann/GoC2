@@ -14,7 +14,7 @@ func DotnetCheck() (string, error) {
 		return "", err
 	}
 	defer key.Close()
-	subKeys, err := key.ReadSubKeyNames(10)
+	subKeys, err := key.ReadSubKeyNames(-1)
 	if err != nil {
 		return "", err
 	}
