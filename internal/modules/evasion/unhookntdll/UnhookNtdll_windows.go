@@ -6,7 +6,6 @@ package unhookntdll
 import (
 	"bytes"
 	"debug/pe"
-	"log"
 	"syscall"
 	"unsafe"
 
@@ -63,7 +62,7 @@ func PerunsFart() (string, error) {
 	var szPtr uintptr = uintptr(textSection.VirtualSize)
 	hCurrent, err := windows.GetCurrentProcess()
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	err = rawapi.NtProtectVirtualMemory(uintptr(hCurrent), (uintptr)(offsetToTextSectionHooked), &szPtr, 0x40, &oldProtect)
 	if err != nil {
@@ -93,7 +92,7 @@ func UnhookRaw(localNtdllAddress windows.Handle, cleanNtdllMapping uintptr) erro
 	var szPtr uintptr = uintptr(imageSection.VirtualSize)
 	hCurrent, err := windows.GetCurrentProcess()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	err = rawapi.NtProtectVirtualMemory(uintptr(hCurrent), (uintptr)(offsetToTextSectionHooked), &szPtr, 0x40, &oldProtect)
 	if err != nil {

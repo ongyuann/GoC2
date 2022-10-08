@@ -7,7 +7,6 @@ import (
 	b64 "encoding/base64"
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
 )
 
@@ -27,20 +26,17 @@ func DownloadFile(filePath string) (string, error) {
 	}
 	tempDir, err := ioutil.TempDir("", "")
 	if err != nil {
-		log.Fatal(err)
 		return "", err
 	}
 	defer os.RemoveAll(tempDir)
 	file, err := ioutil.TempFile(tempDir, "")
 	if err != nil {
-		log.Fatal(err)
 		return "", err
 	}
 	defer os.Remove(file.Name())
 	var buf bytes.Buffer
 	w, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
 	if err != nil {
-		log.Fatal(err)
 		return "", err
 	}
 	w.Write(data)

