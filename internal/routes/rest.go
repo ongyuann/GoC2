@@ -493,7 +493,7 @@ func StartRestAPI(port string) {
 	log.Log.Fatal().Str("service", "RestAPI").Msgf("%v", err)
 }
 
-///// HTTP LISTENERS
+///// HTTP LISTENERS ///////////////
 
 func LogHTTPSListenerRequest(c *gin.Context) {
 	ipStr := c.RemoteIP()
@@ -595,11 +595,11 @@ func StartHttpsListener(port string, shutdownChannel chan int) {
 	router.POST("/results", ListenerHandleResults)
 	router.POST("/login", ListenerHandleCheckIn)
 	httpServer := http.Server{
-		Addr:         fmt.Sprintf(":%s", port),
-		Handler:      router,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Addr:    fmt.Sprintf(":%s", port),
+		Handler: router,
+		//ReadTimeout:  5 * time.Second,
+		//WriteTimeout: 10 * time.Second,
+		//IdleTimeout:  120 * time.Second,
 	}
 	ctxShutDown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer func() {

@@ -74,30 +74,34 @@ var ExecutionModulesList = [...]string{
 
 var EvasionModulesList = [...]string{
 	"exit",
-	"hook-check",
-	"patch-amsi",
-	"patch-etw",
-	"disable-sysmon",
-	"unhook-ntdll",
+	"hook-check",     // stable
+	"patch-amsi",     // stable
+	"patch-etw",      // stable
+	"disable-sysmon", // stable
+	"unhook-ntdll",   // stable
 	"peruns-fart",
-	"delete-event-log",
+	"delete-event-log", //stable
 }
 
 var LateralMovementModulesList = [...]string{
 	"exit",
-	"winrm-exec",
+	"start-ws-pivot",
+	"stop-ws-pivot",
+	"start-http-pivot",
+	"stop-http-pivot",
+	"winrm-exec", // stable
 	"wmi-exec",
-	"smb-exec",
-	"ps-exec",
-	"list-remote-services",
-	"list-loggedon-users",
-	"fileless-service",
-	"admin-check",
+	"smb-exec",             // stable
+	"ps-exec",              // stable
+	"list-remote-services", // stable
+	"list-loggedon-users",  // stable
+	"fileless-service",     // stable
+	"admin-check",          // stable
 }
 
 var PrivilegeEscalationModulesList = [...]string{
 	"exit",
-	"shell-history",
+	"shell-history", // stable
 	"start-keylogger",
 	"stop-keylogger",
 	"start-clipboard-monitor",
@@ -106,56 +110,56 @@ var PrivilegeEscalationModulesList = [...]string{
 
 var PersistenceModulesList = [...]string{
 	"exit",
-	"powershell-profile",
+	"powershell-profile", // stable
 	"run-key",
 	"logon-script",
 	"launch-items",
 	"login-items",
 	"crontab",
-	"add-user",
-	"remove-user",
-	"add-user-group",
-	"remove-user-group",
+	"add-user",          // stable
+	"remove-user",       // stable
+	"add-user-group",    // stable
+	"remove-user-group", // stable
 }
 
 var EnumerationModulesList = [...]string{
 	"exit",
-	"console-check",
-	"dotnet-check",
-	"env",
-	"enum-drivers",
-	"enum-local",
-	"port-scan",
-	"subnet-scan",
-	"ifconfig",
-	"list-pipes",
-	"list-services",
-	"list-ports",
-	"list-shares",
+	"console-check", // stable
+	"dotnet-check",  // stable
+	"env",           // stable
+	"enum-drivers",  // stable
+	"enum-local",    // stable
+	"port-scan",     // stable
+	"subnet-scan",   // stable but it sucks
+	"ifconfig",      // stable
+	"list-pipes",    // stable
+	"list-services", // stable
+	"list-ports",    // stable
+	"list-shares",   // stable
 	//"screenshot",
-	"nslookup",
-	"reverse-lookup",
+	"nslookup",       // stable
+	"reverse-lookup", // stable
 }
 
 var CredentialsModulesList = [...]string{
 	"exit",
-	"dump-secrets",
-	"dump-secrets-remote",
-	"dump-process",
-	"dump-credential-mgr",
+	"dump-secrets",        // stable
+	"dump-secrets-remote", // stable
+	"dump-process",        // stable
+	"dump-credential-mgr", // stable
 }
 
 var ImpersonationModulesList = [...]string{
 	"exit",
-	"show-priv",
-	"enable-priv",
-	"disable-priv",
-	"enum-tokens",
-	"get-system",
-	"steal-token",
-	"logon-user",
+	"show-priv",    //stable
+	"enable-priv",  // stable
+	"disable-priv", // stable
+	"enum-tokens",  // stable
+	"get-system",   // stable
+	"steal-token",  // stable
+	"logon-user",   // stable
 	"logon-user-netonly",
-	"rev2self",
+	"rev2self", // stable
 }
 
 var BasicModulesList = [...]string{

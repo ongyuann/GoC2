@@ -32,27 +32,11 @@ client_windows_garble:
 	GOOS=windows garble build -ldflags "-s -w -H=windowsgui" -tags windows -o bin/client.exe cmd/client/client.go
 
 client_windows_debug:
-	@echo  - README -
-	@echo "For some reason on windows the ldflags -X command doesnt work" 
-	@echo "so you need to manually edit the internal/client/client.go file"
-	@echo "and modify ServerSecret and ServerHostName Before Building"
-	@echo "press enter once you made that change to start building..."
-	@read NULL
-	#GOOS=windows go build -ldflags "-s -w" -tags windows -o bin/client.exe cmd/client/client.go
 	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -ldflags="-w -s " -o bin/client.exe cmd/client/client.go
 
 client_windows_dll:
 	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -buildmode=c-shared -ldflags="-w -s" -o bin/client.dll cmd/clientDLL/clientDLL.go
 
-
-client_windows:
-	@echo  - README -
-	@echo "For some reason on windows the ldflags -X command doesnt work" 
-	@echo "so you need to manually edit the internal/client/client.go file"
-	@echo "and modify ServerSecret and ServerHostName Before Building"
-	@echo "press enter once you made that change to start building..."
-	@read NULL
-	GOOS=windows go build -ldflags "-s -w -H=windowsgui" -tags windows -o bin/client.exe cmd/client/client.go
 
 client_windows_old:
 	echo "Start Server To Create Certificates Then Continue..."
@@ -88,3 +72,5 @@ macos: macos_server macos_cli
 linux: linux_server linux_cli
 
 windows: windows_malleable windows_cli windows_server 
+
+client_windows: client_windows_debug client_windows_dll

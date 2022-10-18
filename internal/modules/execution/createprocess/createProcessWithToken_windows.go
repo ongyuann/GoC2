@@ -38,12 +38,18 @@ func CreateProcessWithTokenViaPid(args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var si windows.StartupInfo
-	var pi windows.ProcessInformation
+	si := &windows.StartupInfo{}
+	si.ShowWindow = winapi.ShowWindow
+	si.Flags = si.Flags | winapi.STARTF_USESHOWWINDOW
+	pi := &windows.ProcessInformation{}
 	binaryArgs := syscall.StringToUTF16Ptr(strings.Join(binaryArgsW, " "))
-	err = windows.CreateProcessAsUser(duplicatedToken, nil, binaryArgs, nil, nil, false, windows.CREATE_NO_WINDOW, nil, nil, &si, &pi)
+	err = windows.CreateProcessAsUser(duplicatedToken, nil, binaryArgs, nil, nil, false, windows.CREATE_NO_WINDOW, nil, nil, si, pi)
 	if err != nil {
-		return "", err
+		ok, err := winapi.CreateProcessWithTokenW(syscall.Handle(duplicatedToken), 2, binaryArgs, windows.CREATE_NO_WINDOW, 0, si, pi)
+		if !ok {
+			return "", err
+		}
+		return fmt.Sprintf("[+] Used CreateProcessWithToken to start process %d may not have access to domain resources", pi.ProcessId), err
 	}
 	return fmt.Sprintf("Started Process Id %d", pi.ProcessId), nil
 }
@@ -65,8 +71,16 @@ func CreateProcessWithTokenViaCreds(args []string) (string, error) {
 	}
 	err = windows.CreateProcessAsUser(windows.Token(hToken), nil, binaryArgs, nil, nil, false, windows.CREATE_NO_WINDOW, nil, nil, startupInfo, processInfo)
 	if err != nil {
-		return "", err
+		si := &windows.StartupInfo{}
+		si.ShowWindow = winapi.ShowWindow
+		si.Flags = si.Flags | winapi.STARTF_USESHOWWINDOW
+		pi := &windows.ProcessInformation{}
+		ok, err := winapi.CreateProcessWithTokenW(syscall.Handle(hToken), 2, binaryArgs, windows.CREATE_NO_WINDOW, 0, si, pi)
+		if !ok {
+			return "", err
+		}
+		return fmt.Sprintf("[+] Used CreateProcessWithToken to start process %d may not have access to domain resources", pi.ProcessId), err
 	}
-	completed := fmt.Sprintf("Started Process %d", processInfo.ProcessId)
+	completed := fmt.Sprintf("[+] Started Process %d", processInfo.ProcessId)
 	return completed, nil
 }

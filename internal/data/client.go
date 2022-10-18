@@ -48,6 +48,7 @@ type Client struct {
 	ClientCertPEM        string          `json:"-"`
 	ClientKeyPem         string          `json:"-"`
 	ClientRootCA         string          `json:"-"`
+	HTTPClient           *http.Client    `json:"-"`
 }
 
 func (c *Client) ToBytes() []byte {
@@ -94,6 +95,18 @@ func GetPublicIp() string {
 	return result
 }
 
+func SingleConnectionHttpClient() *http.Client {
+	client := &http.Client{
+		Transport: &http.Transport{
+			MaxConnsPerHost: 1,
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			// other option field
+		},
+		//Timeout: time.Duration(RequestTimeout) * time.Second,
+	}
+	return client
+}
+
 func NewClient() *Client {
 	hostname, err := os.Hostname()
 	user, err := user.Current()
@@ -109,6 +122,7 @@ func NewClient() *Client {
 		integrity = basic.GetIntegrity()
 	}
 	uuid := GenerateUUID()
+
 	return &Client{
 		ClientId:         uuid,
 		HostName:         hostname,
@@ -124,6 +138,7 @@ func NewClient() *Client {
 		Sleeping:         false,
 		PublicIp:         GetPublicIp(),
 		ClientSideSymKey: []byte(uuid),
+		HTTPClient:       SingleConnectionHttpClient(),
 	}
 
 }

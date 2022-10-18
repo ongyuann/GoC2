@@ -728,7 +728,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "logon-user-netonly":
 		PrepareTaskWithArgs(c, clientId, command, "<domain> <userName> <password>: ")
 	case "logon-user":
-		PrepareTaskWithArgs(c, clientId, command, "<domain> <userName> <password>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<domain> <userName> <password> <pathToBinary>: ")
 	case "whoami":
 		PrepareTaskSimple(c, clientId, command)
 	case "rev2self":
@@ -904,6 +904,14 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "enum-handles":
 		PrepareTaskSimple(c, clientId, command)
 	case "console-check":
+		PrepareTaskSimple(c, clientId, command)
+	case "start-ws-pivot":
+		PrepareTaskWithArgs(c, clientId, command, "<listenAddr> <c2ListenAddr>: ")
+	case "start-http-pivot":
+		PrepareTaskWithArgs(c, clientId, command, "<listenAddr> <c2ListenAddr>: ")
+	case "stop-ws-pivot":
+		PrepareTaskSimple(c, clientId, command)
+	case "stop-http-pivot":
 		PrepareTaskSimple(c, clientId, command)
 	default:
 		c.Println("Task not found.")

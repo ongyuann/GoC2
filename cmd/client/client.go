@@ -129,7 +129,15 @@ func websocketMode() {
 	}
 }
 
+func NamedPipeMode() {
+	// would need to send raw bytes using named pipe functions
+	// so you need to serialize data being sent over then call WriteFile using the named pipe
+	// then once you send the data then you to need to call ReadFile on the pipe to get the server response.
+	// pivot would read from the pipe waiting for implant json data
+	// then would have an http connection with the C2??
+}
+
 func main() {
-	websocketMode()
-	//httpsMode()
+	//websocketMode()
+	httpsMode()
 }
