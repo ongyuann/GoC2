@@ -64,22 +64,13 @@ func CreateProcessWithTokenViaCreds(args []string) (string, error) {
 	startupInfo.ShowWindow = winapi.ShowWindow
 	startupInfo.Flags = startupInfo.Flags | winapi.STARTF_USESHOWWINDOW
 	processInfo := &windows.ProcessInformation{}
-	var hToken syscall.Handle
-	ok, err := winapi.LogonUser(userW, domainW, passW, 8, 3, &hToken)
-	if !ok {
-		return "", err
-	}
-	err = windows.CreateProcessAsUser(windows.Token(hToken), nil, binaryArgs, nil, nil, false, windows.CREATE_NO_WINDOW, nil, nil, startupInfo, processInfo)
+	si := &windows.StartupInfo{}
+	si.ShowWindow = winapi.ShowWindow
+	si.Flags = si.Flags | winapi.STARTF_USESHOWWINDOW
+	pi := &windows.ProcessInformation{}
+	err := winapi.CreateProcessWithLogonW(userW, domainW, passW, 1, binaryArgs, winapi.CREATE_SUSPENDED|windows.CREATE_NO_WINDOW, nil, si, pi)
 	if err != nil {
-		si := &windows.StartupInfo{}
-		si.ShowWindow = winapi.ShowWindow
-		si.Flags = si.Flags | winapi.STARTF_USESHOWWINDOW
-		pi := &windows.ProcessInformation{}
-		ok, err := winapi.CreateProcessWithTokenW(syscall.Handle(hToken), 2, binaryArgs, windows.CREATE_NO_WINDOW, 0, si, pi)
-		if !ok {
-			return "", err
-		}
-		return fmt.Sprintf("[+] Used CreateProcessWithToken to start process %d may not have access to domain resources", pi.ProcessId), err
+		return "", err
 	}
 	completed := fmt.Sprintf("[+] Started Process %d", processInfo.ProcessId)
 	return completed, nil

@@ -126,19 +126,32 @@ func ImpersonateLoggedOnUser(token windows.Token) (bool, error) {
 }
 
 func CreateProcessWithLogonW(
-	username *uint16,
-	domain *uint16,
-	password *uint16,
+	username string,
+	domain string,
+	password string,
 	logonFlags uint32,
 	commandLine *uint16,
 	creationFlags uint32,
 	environment *uint16,
-	startupInfo *syscall.StartupInfo,
-	processInformation *syscall.ProcessInformation) error {
+	startupInfo *windows.StartupInfo,
+	processInformation *windows.ProcessInformation) error {
+	u, err := syscall.UTF16PtrFromString(username)
+	if err != nil {
+		return err
+	}
+	d, err := syscall.UTF16PtrFromString(domain)
+	if err != nil {
+		return err
+	}
+	p, err := syscall.UTF16PtrFromString(password)
+	if err != nil {
+		return err
+	}
+
 	r1, _, e1 := pCreateProcessWithLogonW.Call(
-		uintptr(unsafe.Pointer(username)),
-		uintptr(unsafe.Pointer(domain)),
-		uintptr(unsafe.Pointer(password)),
+		uintptr(unsafe.Pointer(u)),
+		uintptr(unsafe.Pointer(d)),
+		uintptr(unsafe.Pointer(p)),
 		uintptr(logonFlags),
 		uintptr(0),
 		uintptr(unsafe.Pointer(commandLine)),

