@@ -71,7 +71,7 @@ func PatchStage1ConfigDLL() {
 	}
 	// new config
 	conf := data.Config{}
-	conf.ServerHostName = "0.0.0.0"
+	conf.ServerHostName = "192.168.100.121"
 	conf.ServerPort = "5555"
 	conf.ServerSecret = "test"
 	stringConf, err := json.Marshal(conf)
@@ -94,7 +94,7 @@ func PatchStage1Config() {
 	}
 	// new config
 	conf := data.Config{}
-	conf.ServerHostName = "0.0.0.0"
+	conf.ServerHostName = "192.168.100.121"
 	conf.ServerPort = "5555"
 	conf.ServerSecret = "test"
 	stringConf, err := json.Marshal(conf)

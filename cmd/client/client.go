@@ -138,6 +138,6 @@ func NamedPipeMode() {
 }
 
 func main() {
-	//websocketMode()
-	httpsMode()
+	websocketMode()
+	//httpsMode()
 }

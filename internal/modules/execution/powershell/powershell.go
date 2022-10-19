@@ -20,7 +20,7 @@ func NewPwsh() *PowerShell {
 }
 
 func (p *PowerShell) Execute(args ...string) (stdOut string, stdErr string, err error) {
-	args = append([]string{"-WindowStyle Hidden -NoProfile", "-NonInteractive"}, args...)
+	args = append([]string{"-WindowStyle", "Hidden", "-NoProfile", "-NonInteractive"}, args...)
 	cmd := exec.Command(p.powerShell, args...)
 
 	var stdout bytes.Buffer
