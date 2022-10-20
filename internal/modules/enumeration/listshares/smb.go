@@ -7,8 +7,11 @@ import (
 	"net"
 	"os"
 	"strings"
+	"unsafe"
 
 	"github.com/hirochachacha/go-smb2"
+	"github.com/latortuga71/GoC2/pkg/winapi"
+	"golang.org/x/sys/windows"
 )
 
 func WriteFileOnShare(args []string) (string, error) {
@@ -197,6 +200,38 @@ func DeleteFileOnShare(args []string) (string, error) {
 }
 
 func ListShares(args []string) (string, error) {
+	if len(args) == 0 {
+		return "", errors.New("Not Enough Args.")
+	}
+	machine := args[0]
+	results := ""
+	var total uint32
+	var entries uint32
+	var buffer *winapi.SHARE_INFO_2
+	err := winapi.NetShareEnum(machine, &buffer, winapi.MAX_PREFFERED_LENGTH, &entries, &total)
+	if err != nil {
+		return "", err
+	}
+	var start *winapi.SHARE_INFO_2 = buffer
+	for x := 0; x < int(entries); x++ {
+		remark := windows.UTF16PtrToString(buffer.Remark)
+		if remark == "" {
+			remark = "n/a"
+		}
+		results += fmt.Sprintf("SHARE: %s Path: %s Connections: %d Remarks: %s\n",
+			windows.UTF16PtrToString(buffer.NetName),
+			windows.UTF16PtrToString(buffer.Path),
+			buffer.CurrentConections,
+			remark,
+		)
+		buffer = (*winapi.SHARE_INFO_2)(unsafe.Pointer(uintptr(unsafe.Pointer(buffer)) + unsafe.Sizeof(winapi.SHARE_INFO_2{})))
+	}
+	winapi.NetApiBufferFree(uintptr(unsafe.Pointer(start)))
+	return results, nil
+}
+
+/*
+func ListShares(args []string) (string, error) {
 	if len(args) < 3 {
 		return "", errors.New("Not Enough Args.")
 	}
@@ -253,3 +288,4 @@ func ListShares(args []string) (string, error) {
 	}
 	return results, nil
 }
+*/

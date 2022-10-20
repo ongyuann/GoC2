@@ -85,6 +85,8 @@ var EvasionModulesList = [...]string{
 
 var LateralMovementModulesList = [...]string{
 	"exit",
+	"start-websrv",
+	"stop-websrv",
 	"start-ws-pivot",
 	"stop-ws-pivot",
 	"start-http-pivot",

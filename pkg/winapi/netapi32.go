@@ -11,6 +11,14 @@ import (
 const (
 	MAX_PREFFERED_LENGTH int32 = -1
 	//MAX_PREFFERED_LENGTH uint32 = 0xFFFFFFFF
+	ACCESS_READ   = 0x01
+	ACCESS_WRITE  = 0x02
+	ACCESS_CREATE = 0x04
+	ACCESS_EXEC   = 0x08
+	ACCESS_DELETE = 0x10
+	ACCESS_ATRIB  = 0x20
+	ACCESS_PERM   = 0x40
+	ACCESS_ALL    = ACCESS_READ | ACCESS_WRITE | ACCESS_CREATE | ACCESS_EXEC | ACCESS_DELETE | ACCESS_ATRIB | ACCESS_PERM
 )
 
 var (
@@ -28,7 +36,37 @@ var (
 	pNetUserDel              = pModNetApi32.NewProc("NetUserDel")
 	pNetServerEnum           = pModNetApi32.NewProc("NetServerEnum")
 	pNetWkstaUserEnum        = pModNetApi32.NewProc("NetWkstaUserEnum")
+	pNetShareEnum            = pModNetApi32.NewProc("NetShareEnum")
+	pNetShareAdd             = pModNetApi32.NewProc("NetShareAdd")
+	pNetShareDel             = pModNetApi32.NewProc("NetShareDel")
 )
+
+func NetShareAdd(server string, level uint32, bufPtr *SHARE_INFO_2) error {
+	s, err := windows.UTF16PtrFromString(server)
+	if err != nil {
+		return err
+	}
+	var t uint32
+	res, _, err := pNetShareAdd.Call(uintptr(unsafe.Pointer(s)), uintptr(2), uintptr(unsafe.Pointer(bufPtr)), uintptr(unsafe.Pointer(&t)))
+	if res != 0 {
+		fmt.Println(t)
+		fmt.Println(res)
+		return fmt.Errorf("Error Code 0x%x", res)
+	}
+	return nil
+}
+
+func NetShareEnum(server string, bufPtr **SHARE_INFO_2, maxLen int32, entries *uint32, total *uint32) error {
+	s, err := windows.UTF16PtrFromString(server)
+	if err != nil {
+		return err
+	}
+	res, _, err := pNetShareEnum.Call(uintptr(unsafe.Pointer(s)), uintptr(2), uintptr(unsafe.Pointer(bufPtr)), uintptr(maxLen), uintptr(unsafe.Pointer(entries)), uintptr(unsafe.Pointer(total)), uintptr(0))
+	if res != 0 {
+		return err
+	}
+	return nil
+}
 
 func NetWkstaUserEnum(server string, bufPtr **WKSTA_USER_INFO_1, maxLen int32, entries *uint32, total *uint32) error {
 	s, err := windows.UTF16PtrFromString(server)
@@ -40,6 +78,17 @@ func NetWkstaUserEnum(server string, bufPtr **WKSTA_USER_INFO_1, maxLen int32, e
 		return err
 	}
 	return nil
+}
+
+type SHARE_INFO_2 struct {
+	NetName           *uint16
+	Type              uint32
+	Remark            *uint16
+	Permissions       uint32
+	MaxUses           uint32
+	CurrentConections uint32
+	Path              *uint16
+	Password          *uint16
 }
 
 type WKSTA_USER_INFO_1 struct {

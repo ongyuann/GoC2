@@ -1,7 +1,7 @@
 //go:build darwin || linux
 // +build darwin linux
 
-package runbinary
+package logonuser
 
 func RunAs(args []string) (string, error) {
 	return "Need to implement on linux setuid", nil

