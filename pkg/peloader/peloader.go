@@ -786,6 +786,7 @@ func (r *RawPe) LoadPEFromMemoryPipe() (string, error) {
 			r.FreePeFromMemory()
 			return "", fmt.Errorf("Failed to get handle to tmp file")
 		}
+		//FixExeParameters()
 		err = winapi.SetStdHandle(windows.STD_OUTPUT_HANDLE, windows.Handle(hFile))
 		if err != nil {
 			r.FreePeFromMemory()
@@ -814,6 +815,64 @@ func (r *RawPe) LoadPEFromMemoryPipe() (string, error) {
 		return "", errors.New("Provided Invalid PE Type")
 	}
 	return fmt.Sprintf("PE STDOUT: %s", result), nil
+}
+
+//TODO need to allocate a new buffer to replace new commandlinew
+// and then revert to old buffer once completed execution.
+func FixExeParameters() error {
+	ppeb := windows.RtlGetCurrentPeb()
+	pparams := ppeb.ProcessParameters
+	fmt.Printf("Address of PEB %x\n", unsafe.Pointer(ppeb))
+	fmt.Printf("Address of commandline %x\n", unsafe.Pointer(pparams.CommandLine.Buffer))
+	argv1Str := " coffee exit"
+	argv1Length := len(argv1Str) * 2
+	originalLength := pparams.CommandLine.MaximumLength
+	argv1Ptr, err := windows.UTF16PtrFromString(argv1Str)
+	spaceChecker, _ := syscall.UTF16PtrFromString(" ")
+	if err != nil {
+		return err
+	}
+	cBuff, err := winapi.VirtualAlloc(0, uint32(pparams.CommandLine.MaximumLength), winapi.MEM_COMMIT|winapi.MEM_RESERVE, winapi.PAGE_READWRITE)
+	if err != nil {
+		return err
+	}
+	var read uint32
+	var wrote uint32
+	ok, err := winapi.ReadProcessMemory(syscall.Handle(winapi.GetCurrentProcess()), uintptr(unsafe.Pointer(pparams.CommandLine.Buffer)), cBuff, uint32(pparams.CommandLine.MaximumLength), &read)
+	if !ok {
+		return err
+	}
+	argv0Counter := 0
+	for {
+		// while not a space
+		if *(*uint16)(unsafe.Pointer(cBuff)) == *spaceChecker {
+			break
+		}
+		argv0Counter++
+		cBuff++
+	}
+	fmt.Printf("GOT LENGTH OF ARGV0 %d\n", argv0Counter)
+	offsetToEndOfArg0 := (uintptr)(unsafe.Pointer(pparams.CommandLine.Buffer)) + uintptr(argv0Counter)
+	ok, err = winapi.WriteProcessMemory(syscall.Handle(winapi.GetCurrentProcess()), offsetToEndOfArg0, uintptr((unsafe.Pointer(argv1Ptr))), uint32(argv1Length), &wrote)
+	if !ok {
+		return err
+	}
+	fmt.Printf("WROTE %d bytes\n", wrote)
+	for x := 0; x < int(wrote); x++ {
+		argv0Counter++
+	}
+	// zero the rest of the memory out
+	zeroBuffer := make([]byte, uint32(originalLength)-uint32(argv0Counter))
+	ok, err = winapi.WriteProcessMemory(syscall.Handle(winapi.GetCurrentProcess()), offsetToEndOfArg0+uintptr(wrote), uintptr(unsafe.Pointer(&zeroBuffer[0])), uint32(originalLength)-uint32(argv0Counter), &wrote)
+	if !ok {
+		return err
+	}
+	fmt.Printf("ZEROED %d bytes\n", wrote)
+	//pparams.CommandLine.Buffer = argv1Ptr
+	pparams.CommandLine.MaximumLength = uint16(argv0Counter)
+	pparams.CommandLine.Length = uint16(argv0Counter)
+	fmt.Println(pparams.CommandLine.MaximumLength)
+	return nil
 }
 
 func (r *RawPe) FreePeFromMemory() error {

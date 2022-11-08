@@ -1,10 +1,10 @@
 package data
 
 type DonutPayload struct {
-	RawPEBytes  []byte // IN
-	FileType    string // .exe .dll
-	DonutString string // IN
-	ConvertedPE []byte // OUT
+	RawPEBytes  []byte `json:"raw_pe_bytes"` // IN
+	FileType    string `json:"file_type"`    // .exe .dll
+	DonutString string `json:"donut_params"` // IN
+	ConvertedPE []byte `json:"converted_pe"` // OUT
 }
 
 type SRDIPayload struct {
