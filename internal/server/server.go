@@ -72,7 +72,6 @@ func ServerHandleTaskResult(clientUUId string, message []byte) bool {
 			db.ClientsDatabase.SetClientAwake(r.ClientId)
 		}
 		if r.TaskId == "JitterTask" {
-			fmt.Println("JITTER TASK")
 			db.ClientsDatabase.SetClientJitter(r.ClientId, r.Result)
 		}
 		db.ClientsDatabase.AddClientTaskResult(r.ClientId, *r)

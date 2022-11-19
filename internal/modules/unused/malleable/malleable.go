@@ -65,12 +65,12 @@ func MultiplyString(s string, count int) string {
 }
 
 func PatchStage1ConfigDLL() {
-	b, err := ioutil.ReadFile("C:\\Users\\Christopher\\Desktop\\GoC2\\bin\\client.dll")
+	b, err := ioutil.ReadFile("C:\\Users\\Christopher\\Desktop\\GoC2\\bin\\wsclient.dll")
 	if err != nil {
 		log.Fatal(err)
 	}
 	// new config
-	conf := data.Config{}
+	conf := data.MalleableClient{}
 	conf.ServerHostName = "0.0.0.0"
 	conf.ServerPort = "443"
 	conf.ServerSecret = "test"
@@ -88,15 +88,19 @@ func PatchStage1ConfigDLL() {
 }
 
 func PatchStage1Config() {
-	b, err := ioutil.ReadFile("C:\\Users\\Christopher\\Desktop\\GoC2\\bin\\client.exe")
+	b, err := ioutil.ReadFile("C:\\Users\\Christopher\\Desktop\\GoC2\\bin\\wsclient.exe")
 	if err != nil {
 		log.Fatal(err)
 	}
 	// new config
-	conf := data.Config{}
+	conf := data.MalleableClient{}
+	conf.Type = data.ExeImplant
+	conf.Communication = data.WsCommunication
+	conf.GeneratedImplant = []byte{0xaa}
 	conf.ServerHostName = "0.0.0.0"
 	conf.ServerPort = "443"
 	conf.ServerSecret = "test"
+	conf.UserAgent = "TEST"
 	stringConf, err := json.Marshal(conf)
 	if err != nil {
 		log.Fatal(err)

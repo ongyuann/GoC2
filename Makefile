@@ -31,11 +31,19 @@ client_windows_garble:
 	@read NULL
 	GOOS=windows garble build -ldflags "-s -w -H=windowsgui" -tags windows -o bin/client.exe cmd/client/client.go
 
-client_windows_debug:
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -ldflags="-w -s " -o bin/client.exe cmd/client/client.go
+client_windows_ws_exe:
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -ldflags="-w -s " -o bin/wsclient.exe cmd/wsClientExe/main.go
 
-client_windows_dll:
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -buildmode=c-shared -ldflags="-w -s" -o bin/client.dll cmd/clientDLL/clientDLL.go
+client_windows_ws_dll:
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -buildmode=c-shared -ldflags="-w -s" -o bin/wsclient.dll cmd/wsClientDLL/main.go
+	rm bin/wsclient.h
+
+client_windows_http_exe:
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -ldflags="-w -s " -o bin/httpclient.exe cmd/httpClientExe/main.go
+
+client_windows_http_dll:
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -buildmode=c-shared -ldflags="-w -s" -o bin/httpclient.dll cmd/httpClientDLL/main.go
+	rm bin/httpclient.h
 
 
 client_windows_old:
@@ -71,6 +79,6 @@ macos: macos_server macos_cli
 
 linux: linux_server linux_cli
 
-windows: windows_malleable windows_cli windows_server 
+windows: windows_cli windows_server 
 
-client_windows: client_windows_debug client_windows_dll
+client_windows: client_windows_ws_exe client_windows_ws_dll client_windows_http_exe client_windows_http_dll

@@ -97,7 +97,7 @@ var caCert string
 
 func init() {
 	// malleable
-	config := data.Config{}
+	config := data.MalleableClient{}
 	// read until the nulls
 	var jsonData []byte
 	for x := 0; x < len(MalleableConfig); x++ {

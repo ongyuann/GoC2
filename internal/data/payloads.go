@@ -19,3 +19,24 @@ type LoaderPayload struct {
 	LoaderStringB64   string `json:"loader_string"`
 	LoaderString      string `json:"loader_string_encoded"`
 }
+
+type ImplantComm string
+type ImplantType string
+
+const (
+	WsCommunication   ImplantComm = "ws"
+	HttpCommunication ImplantComm = "http"
+	DllImplant        ImplantType = "dll"
+	ExeImplant        ImplantType = "exe"
+)
+
+type MalleableClient struct {
+	Communication    ImplantComm `json:"implant_comm"`
+	Type             ImplantType `json:"implant_type"`
+	ServerHostName   string      `json:"server_hostname"`
+	ServerPort       string      `json:"server_port"`
+	ServerSecret     string      `json:"server_secret"`
+	UserAgent        string      `json:"user_agent"`
+	GeneratedImplant []byte      `json:"generated_implant"`
+	//.... more stufff here in future?
+}
