@@ -25,7 +25,6 @@ func SinglePortScan(args []string) (string, error) {
 	conn, err := net.Dial("tcp", target)
 	if err != nil {
 		results += fmt.Sprintf("TCP PORT %s CLOSED", port)
-
 	}
 	conn.Close()
 	results += fmt.Sprintf("TCP PORT %s OPEN\n", port)

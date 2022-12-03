@@ -17,7 +17,6 @@ func ListPipes() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("got first")
 	for {
 		fileName := windows.UTF16PtrToString(&fd.FileName[0])
 		results += fmt.Sprintf("%s\n", fileName)

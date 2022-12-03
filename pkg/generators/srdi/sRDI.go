@@ -1,4 +1,4 @@
-package SRDI
+package srdi
 
 import (
 	"encoding/binary"

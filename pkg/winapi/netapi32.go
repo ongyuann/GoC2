@@ -49,8 +49,6 @@ func NetShareAdd(server string, level uint32, bufPtr *SHARE_INFO_2) error {
 	var t uint32
 	res, _, err := pNetShareAdd.Call(uintptr(unsafe.Pointer(s)), uintptr(2), uintptr(unsafe.Pointer(bufPtr)), uintptr(unsafe.Pointer(&t)))
 	if res != 0 {
-		fmt.Println(t)
-		fmt.Println(res)
 		return fmt.Errorf("Error Code 0x%x", res)
 	}
 	return nil

@@ -62,34 +62,27 @@ func (p *PivotConnections) HandleNewHTTPConnections(incoming net.Conn) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Connected to dest %s\n", p.DestAddr)
 	// forward traffic.
 	go func() {
 		nBytes, err := io.Copy(destinationConn, incoming)
 		if err != nil {
-			fmt.Printf("CLIENT ERR %v\n", err)
 			incoming.Close()
 			destinationConn.Close()
 			pivotConn.StopChan <- true
 			return
 		}
 		if nBytes > 0 {
-			fmt.Printf("Transferred %d bytes\n", nBytes)
 		}
 
 	}()
 	go func() {
 		nBytes, err := io.Copy(incoming, destinationConn)
 		if err != nil {
-			fmt.Printf("SERVER ERRR %v\n", err)
 		}
 		if nBytes > 0 {
-			fmt.Printf("Transferred %d bytes\n", nBytes)
 		}
 	}()
-	fmt.Printf("Blocking here to forward traffic consistently.\n")
 	<-pivotConn.StopChan
-	fmt.Println("Connections Died Cleaning Up.")
 	return nil
 }
 
@@ -109,20 +102,16 @@ func (p *PivotConnections) HandleNewWSConnections(incoming net.Conn) error {
 	p.DestConns = append(p.DestConns, destinationConn)
 	p.Unlock()
 	max := len(p.SrcConns)
-	max2 := len(p.DestConns)
-	fmt.Printf("Connected to dest %s\n", p.DestAddr)
 	// forward traffic.
 	go func() {
 		nBytes, err := io.Copy(destinationConn, incoming)
 		if err != nil {
-			fmt.Printf("CLIENT ERR %v\n", err)
 			incoming.Close()
 			//destinationConn.Close()
 			p.SrcConns[max-1].StopChan <- true
 			return
 		}
 		if nBytes > 0 {
-			fmt.Printf("Transferred %d bytes\n", nBytes)
 		}
 	}()
 	go func() {
@@ -130,20 +119,14 @@ func (p *PivotConnections) HandleNewWSConnections(incoming net.Conn) error {
 		// copy bytes
 		nBytes, err := io.Copy(incoming, destinationConn)
 		if err != nil {
-			fmt.Printf("SERVER ERRR %v\n", err)
 			destinationConn.Close()
 			p.SrcConns[max-1].StopChan <- true
 			return
 		}
 		if nBytes > 0 {
-			fmt.Printf("Transferred %d bytes\n", nBytes)
 		}
 	}()
-	fmt.Printf("Currently %d client connections\n", max)
-	fmt.Printf("Currently %d c2 connections\n", max2)
-	fmt.Printf("Blocking here to forward traffic consistently.\n")
 	<-p.SrcConns[max-1].StopChan
-	fmt.Println("Shutting down pivot..")
 	return nil
 }
 
@@ -180,7 +163,6 @@ func HTTPPivot(listenerAddr, destinationAddr string) {
 	}
 	go func() {
 		<-HttpPivotGlobal.ShuttingDown
-		fmt.Println("\nReceived an interrupt, stopping...")
 		HttpPivotGlobal.StopPivotListener()
 		HttpPivotGlobal.ShutDown = true
 	}()
@@ -190,12 +172,10 @@ func HTTPPivot(listenerAddr, destinationAddr string) {
 		}
 		incoming, err := HttpPivotGlobal.Listener.Accept()
 		if err != nil {
-			fmt.Printf("Failed to accept connection???\n")
 			continue
 		}
 		go HttpPivotGlobal.HandleNewHTTPConnections(incoming)
 	}
-	fmt.Printf("HTTP Pivot Server completely shutdown!\n")
 }
 
 func WSPivot(listenerAddr, destinationAddr string) {

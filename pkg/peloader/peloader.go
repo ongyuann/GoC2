@@ -765,7 +765,6 @@ func (r *RawPe) LoadPEFromMemoryPipe() (string, error) {
 		}
 		os.Remove(name)
 		result = string(data)
-		fmt.Println("Cleaned up now exiting.")
 		break
 	case Exe:
 		// calling exe entry point no args
@@ -808,7 +807,6 @@ func (r *RawPe) LoadPEFromMemoryPipe() (string, error) {
 		}
 		os.Remove(name)
 		result = string(data)
-		fmt.Println("Cleaned up now exiting.")
 		break
 	default:
 		r.FreePeFromMemory()
