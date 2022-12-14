@@ -20,8 +20,8 @@ import (
 	"github.com/latortuga71/GoC2/internal/db"
 	"github.com/latortuga71/GoC2/internal/log"
 	"github.com/latortuga71/GoC2/internal/server"
-	"github.com/latortuga71/GoC2/pkg/generators/SRDI"
 	"github.com/latortuga71/GoC2/pkg/generators/donut"
+	"github.com/latortuga71/GoC2/pkg/generators/srdi"
 	"github.com/mattn/go-shellwords"
 	"golang.org/x/text/encoding/unicode"
 )
@@ -589,7 +589,7 @@ func SRDIEndpoint(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"Error": "SRDI FAILURE INVALID PARAMETERS"})
 		return
 	}
-	shellcode := SRDI.SRDIFromByteArray(srdiPayload.RawDllBytes, srdiPayload.DllFunctionName)
+	shellcode := srdi.SRDIFromByteArray(srdiPayload.RawDllBytes, srdiPayload.DllFunctionName)
 	if shellcode == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"Error": "SRDI FAILURE"})
 		return
